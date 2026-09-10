@@ -38,3 +38,11 @@ button,input,select{font:inherit}.wrap{width:min(1120px,calc(100% - 32px));margi
 .private-result-btn{margin-top:10px;width:100%;border:0;border-radius:14px;padding:13px 16px;background:#efedff;color:#5147bd;font-weight:900;touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .private-result-text{margin-top:12px;padding:14px;border-radius:14px;background:#fff;font-size:18px;font-weight:950;transition:filter .1s,opacity .1s}
 .private-result-text.blurred{filter:blur(10px);opacity:.55;user-select:none}
+
+/* v2.3 test mode */
+.test-card{border-style:dashed;background:#fdfcff}
+.test-add-row{align-items:stretch}
+.test-count{width:78px;flex:0 0 78px}
+.test-pill{background:#fff5d9;color:#8a5a00}
+.test-preview{margin-top:7px;padding:6px 9px;font-size:12px}
+.test-notice{background:#fffdf5;border-color:#f0dfaa}

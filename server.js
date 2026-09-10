@@ -13,7 +13,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'rooms.json');
 const ROOM_TTL = 6 * 60 * 60 * 1000;
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 const PID_FILE = path.join(__dirname, '.mafia-server.pid');
 const HOSTED = process.env.APP_MODE === 'hosted' || !!process.env.RENDER || !!process.env.RAILWAY_ENVIRONMENT || !!process.env.FLY_APP_NAME;
 const PERSIST_TO_DISK = !HOSTED && process.env.PERSIST_ROOMS !== '0';
@@ -115,7 +115,7 @@ function teacherState(r, showRoles=false){
     ...publicRoom(r),
     createdAt:r.createdAt,
     settings:r.settings,
-    players:r.players.map(p=>({id:p.id,name:p.name,role:showRoles?p.role:null,alive:p.alive,joinedAt:p.joinedAt,connected:connected(p),hasVoted:!!r.currentVotes[p.id],nightDone:!!night.actions?.[p.id]})),
+    players:r.players.map(p=>({id:p.id,name:p.name,role:showRoles?p.role:null,alive:p.alive,joinedAt:p.joinedAt,connected:!p.virtual&&connected(p),virtual:!!p.virtual,hasVoted:!!r.currentVotes[p.id],nightDone:!!night.actions?.[p.id]})),
     tally:r.voteStatus==='ended'?tally(r):[],
     voteProgress:{eligible:r.players.filter(p=>p.alive).length,voted:Object.keys(r.currentVotes||{}).filter(id=>r.players.some(p=>p.id===id&&p.alive)).length},
     voteHistory:r.voteHistory||[],
@@ -138,7 +138,7 @@ function studentState(r,p){
   }
   return {
     ...publicRoom(r),
-    player:{id:p.id,name:p.name,alive:p.alive,role:roleVisible?p.role:null,roleLabel:roleVisible?roleLabel(p.role):null,fellowMafia:fellow,hasVoted:!!r.currentVotes[p.id],votedTargetId:r.currentVotes[p.id]||null,nightDone},
+    player:{id:p.id,name:p.name,alive:p.alive,virtual:!!p.virtual,role:roleVisible?p.role:null,roleLabel:roleVisible?roleLabel(p.role):null,fellowMafia:fellow,hasVoted:!!r.currentVotes[p.id],votedTargetId:r.currentVotes[p.id]||null,nightDone},
     candidates:r.voteStatus==='open'&&p.alive?r.players.filter(x=>x.alive&&x.id!==p.id).map(x=>({id:x.id,name:x.name})):[],
     night:{status:night.status,day:night.day,hasActed:nightDone,candidates:nightOpen&&!nightDone?stableCandidateOrder(r,p):[],resolved:!!night.resolved,privateResult:privateNightResult},
     result:r.voteStatus==='ended'?tally(r):null
@@ -202,9 +202,48 @@ async function api(req,res,u){
   }
   if(method==='GET'&&action==='teacher'){
     const token=header(req,'x-admin-token')||u.searchParams.get('adminToken')||''; if(token!==r.adminToken)return json(res,403,{error:'교사 권한이 없습니다.'});
-    const showRoles=u.searchParams.get('showRoles')==='1'; const st=teacherState(r,showRoles); st.joinUrl=`${publicBase(req)}/student.html?room=${r.code}`; return json(res,200,st);
+    const showRoles=u.searchParams.get('showRoles')==='1'; const st=teacherState(r,showRoles); const base=publicBase(req); st.joinUrl=`${base}/student.html?room=${r.code}`; st.players.forEach(sp=>{ const rp=r.players.find(x=>x.id===sp.id); if(rp?.virtual) sp.previewUrl=`${base}/student.html?room=${r.code}&previewToken=${encodeURIComponent(rp.token)}`; }); return json(res,200,st);
   }
   const admin=teacherAuth(req,r,b); const isTeacher=admin===r.adminToken;
+  if(method==='POST'&&action==='test/virtual/add'){
+    if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'});
+    if(r.rolesAssigned)return json(res,400,{error:'역할 배정 전 테스트 학생을 추가해 주세요. 게임 중이라면 먼저 초기화해 주세요.'});
+    const requested=Math.max(1,Math.min(12,parseInt(b.count,10)||6));
+    const capacity=Math.max(0,40-r.players.length); if(capacity<1)return json(res,400,{error:'방 인원이 이미 40명입니다.'});
+    const count=Math.min(requested,capacity); let serial=1;
+    for(let i=0;i<count;i++){
+      while(r.players.some(p=>p.name===`테스트${serial}`)) serial++;
+      r.players.push({id:rand(10),token:rand(24),name:`테스트${serial}`,role:null,alive:true,joinedAt:now(),lastSeenAt:0,virtual:true}); serial++;
+    }
+    saveRooms(); return json(res,200,{ok:true,added:count,state:teacherState(r,false)});
+  }
+  if(method==='POST'&&action==='test/virtual/clear'){
+    if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'});
+    if(r.rolesAssigned)return json(res,400,{error:'게임 중에는 테스트 학생을 삭제할 수 없습니다. 먼저 게임 초기화를 눌러 주세요.'});
+    const before=r.players.length; r.players=r.players.filter(p=>!p.virtual); saveRooms(); return json(res,200,{ok:true,removed:before-r.players.length,state:teacherState(r,false)});
+  }
+  if(method==='POST'&&action==='test/virtual/night-auto'){
+    if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'}); normalizeRoom(r);
+    if(r.nightAction.status!=='open')return json(res,400,{error:'밤 행동을 시작한 뒤 사용해 주세요.'});
+    let acted=0;
+    for(const p of r.players.filter(x=>x.alive&&x.virtual&&!r.nightAction.actions?.[x.id])){
+      const candidates=stableCandidateOrder(r,p); if(!candidates.length)continue;
+      const idx=parseInt(crypto.createHash('sha256').update(`${r.code}:${r.day}:virtual-night:${p.id}`).digest('hex').slice(0,8),16)%candidates.length;
+      r.nightAction.actions[p.id]=candidates[idx].id; acted++;
+    }
+    saveRooms(); return json(res,200,{ok:true,acted,state:teacherState(r,false)});
+  }
+  if(method==='POST'&&action==='test/virtual/vote-auto'){
+    if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'});
+    if(r.voteStatus!=='open')return json(res,400,{error:'낮 투표를 시작한 뒤 사용해 주세요.'});
+    let voted=0;
+    for(const p of r.players.filter(x=>x.alive&&x.virtual&&!r.currentVotes[x.id])){
+      const candidates=r.players.filter(x=>x.alive&&x.id!==p.id); if(!candidates.length)continue;
+      const idx=parseInt(crypto.createHash('sha256').update(`${r.code}:${r.day}:virtual-vote:${p.id}`).digest('hex').slice(0,8),16)%candidates.length;
+      r.currentVotes[p.id]=candidates[idx].id; voted++;
+    }
+    saveRooms(); return json(res,200,{ok:true,voted,state:teacherState(r,false)});
+  }
   if(method==='POST'&&action==='assign'){
     if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'}); const n=r.players.length; if(n<3)return json(res,400,{error:'학생이 3명 이상 입장한 뒤 역할을 배정해 주세요.'});
     const mafia=Math.max(1,parseInt(b.mafia,10)||0),police=Math.max(0,parseInt(b.police,10)||0),doctor=Math.max(0,parseInt(b.doctor,10)||0); if(mafia+police+doctor>n)return json(res,400,{error:'설정한 특수 역할 수가 전체 학생 수보다 많습니다.'});

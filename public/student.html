@@ -29,8 +29,12 @@
 </div>
 <script src="/common.js"></script>
 <script>
-const code=new URLSearchParams(location.search).get('room');
-let token=localStorage.getItem('mafia_player_'+code);
+const params=new URLSearchParams(location.search);
+const code=params.get('room');
+const previewToken=params.get('previewToken');
+const previewKey='mafia_preview_'+code;
+if(previewToken){sessionStorage.setItem(previewKey,previewToken);params.delete('previewToken');history.replaceState(null,'',location.pathname+'?'+params.toString())}
+let token=sessionStorage.getItem(previewKey)||localStorage.getItem('mafia_player_'+code);
 let state=null,loading=false,selectedVoteTarget=null,lastVoteStatus=null;
 let nightHoldTimer=null,nightHolding=false,nightActionBusy=false;
 
@@ -54,14 +58,14 @@ async function load(){
     render();qs('#app').hidden=false;qs('#fatal').hidden=true;
   }catch(e){
     if(e.message.includes('방을 찾을 수 없'))fatal(e.message);
-    else{localStorage.removeItem('mafia_player_'+code);token=null;fatal(e.message)}
+    else{sessionStorage.removeItem(previewKey);localStorage.removeItem('mafia_player_'+code);token=null;fatal(e.message)}
   }finally{loading=false}
 }
 function fatal(m){qs('#fatal').textContent=m;qs('#fatal').hidden=false;qs('#app').hidden=true}
 function render(){
   qs('#roomCode').textContent=state.code;
   qs('#dayPill').textContent=state.day+'일차';
-  qs('#identity').innerHTML=`나는 <b>${escapeHtml(state.player.name)}</b> · ${state.player.alive?'생존 중':'탈락'}`;
+  qs('#identity').innerHTML=`나는 <b>${escapeHtml(state.player.name)}</b>${state.player.virtual?' <span class="pill">🧪 테스트 학생</span>':''} · ${state.player.alive?'생존 중':'탈락'}`;
   renderRole();renderNight();renderVote();
 }
 function renderRole(){
@@ -82,22 +86,22 @@ function renderNight(){
   const card=qs('#nightCard'),el=qs('#nightContent'),night=state.night||{status:'idle'};
   if(!state.rolesAssigned||night.status==='idle') {card.hidden=true;return}
   card.hidden=false;
-  if(!state.player.alive){
-    el.innerHTML='<div class="night-moon">🌙</div><h2>밤이 진행 중이에요</h2><p class="muted">탈락한 학생은 조용히 기다려 주세요.</p>';
-    return;
-  }
   if(night.status==='resolved'){
     const hasPrivate=!!night.privateResult;
     el.innerHTML=`<div class="night-moon">🌙</div><div class="status-banner status-done">✅ 밤 행동이 끝났습니다.</div><p class="muted" style="text-align:center">선생님의 안내를 기다려 주세요.</p>${hasPrivate?'<div class="private-result-wrap"><div class="small muted">개인 결과가 있다면 아래 영역을 누르고 있는 동안만 볼 수 있어요.</div><button id="privateResultBtn" class="private-result-btn" type="button">🔐 개인 결과 확인</button><div id="privateResultText" class="private-result-text blurred"></div></div>':''}`;
     if(hasPrivate){
       const pr=night.privateResult;
-      const text=pr.kind==='police'?`${escapeHtml(pr.targetName||'선택한 학생')} → ${pr.isMafia?'마피아입니다.':'마피아가 아닙니다.'}`:'추가로 확인할 정보가 없습니다.';
+      const text=pr.kind==='police'?`<div class="small muted" style="margin-bottom:6px">🔎 경찰 조사 결과</div><b>${escapeHtml(pr.targetName||'선택한 학생')}</b>은(는) <b>${pr.isMafia?'마피아입니다.':'마피아가 아닙니다.'}</b>`:'추가로 확인할 정보가 없습니다.';
       qs('#privateResultText').innerHTML=text;
       const btn=qs('#privateResultBtn');
       const reveal=()=>qs('#privateResultText')?.classList.remove('blurred');
       const hide=()=>qs('#privateResultText')?.classList.add('blurred');
       btn.addEventListener('pointerdown',reveal);btn.addEventListener('pointerup',hide);btn.addEventListener('pointerleave',hide);btn.addEventListener('pointercancel',hide);btn.addEventListener('contextmenu',e=>e.preventDefault());
     }
+    return;
+  }
+  if(!state.player.alive){
+    el.innerHTML='<div class="night-moon">🌙</div><h2>밤이 진행 중이에요</h2><p class="muted">탈락한 학생은 조용히 기다려 주세요.</p>';
     return;
   }
   if(night.hasActed){

@@ -1,15 +1,14 @@
-우리 반 마피아 Online v2.2 업데이트
+우리 반 마피아 Online v2.3 업데이트 방법
 
-GitHub class-mafia-online 저장소에서:
-1. Add file -> Upload files
-2. 이 업데이트 폴더 안의 server.js, README.md, public 폴더를 업로드
-3. Commit changes
-4. Render가 자동 배포될 때까지 기다림
-5. 기존 onrender.com 주소 그대로 사용
+1. GitHub의 기존 class-mafia-online 저장소를 엽니다.
+2. Add file → Upload files를 누릅니다.
+3. v2.3-update 압축을 푼 뒤 폴더 안의 파일과 public 폴더를 모두 끌어다 놓습니다.
+4. Commit changes를 누릅니다.
+5. Render가 자동으로 다시 배포할 때까지 기다립니다.
+6. Render 상태가 Live가 되면 기존 주소를 그대로 사용합니다.
 
-v2.2 밤 행동:
-- 교사가 '밤 행동 시작' 클릭
-- 생존 학생 전원에게 동일한 화면 표시
-- 모든 학생이 한 명을 약 0.8초간 꾹 눌러 선택
-- 마피아/의사/경찰의 선택은 역할에 맞게 실제 반영, 시민 선택은 더미
-- 교사가 진행률 확인 후 '밤 결과 적용'
+v2.3 주요 변경
+- 경찰 조사 결과 표시 오류 수정(같은 밤에 경찰이 탈락해도 결과 확인 가능)
+- 교사용 가상 학생 테스트 모드 추가
+- 가상 학생 학생화면 미리보기
+- 가상 학생 밤 행동/낮 투표 자동 선택

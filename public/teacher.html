@@ -22,6 +22,12 @@
         <div class="role-settings"><div class="field"><label>마피아</label><input id="mafiaN" class="input" type="number" min="1" value="2"></div><div class="field"><label>경찰</label><input id="policeN" class="input" type="number" min="0" value="1"></div><div class="field"><label>의사</label><input id="doctorN" class="input" type="number" min="0" value="1"></div></div>
         <label class="toggle"><input id="mafiaKnow" type="checkbox" checked> 마피아끼리 서로 확인</label><button id="assignBtn" class="btn btn-primary btn-block">🎲 역할 배정하기</button><div id="roleMsg" hidden style="margin-top:10px"></div>
       </section>
+      <section class="card test-card">
+        <h2 style="font-size:19px">🧪 가상 학생 테스트</h2>
+        <p class="small muted">실제 태블릿이 없어도 가상 학생을 추가해 역할·투표·밤 행동을 시험할 수 있습니다.</p>
+        <div class="inline test-add-row"><input id="virtualN" class="input test-count" type="number" min="1" max="12" value="6"><button id="addVirtualBtn" class="btn btn-secondary">가상 학생 추가</button><button id="clearVirtualBtn" class="btn btn-light">가상 학생 삭제</button></div>
+        <div id="testActions" class="stack" style="gap:8px;margin-top:10px"></div><div id="testMsg" hidden style="margin-top:10px"></div>
+      </section>
       <section class="card"><h2 style="font-size:19px">게임 관리</h2><div class="stack" style="gap:9px;margin-top:12px"><button id="resetBtn" class="btn btn-light btn-block">게임 초기화</button><button id="deleteBtn" class="btn btn-danger btn-block">방 종료하기</button></div></section>
     </aside>
     <section class="stack">
@@ -63,8 +69,8 @@ function render(){
   qs('#assignBtn').disabled=state.rolesAssigned;['mafiaN','policeN','doctorN','mafiaKnow'].forEach(id=>qs('#'+id).disabled=state.rolesAssigned);
   qs('#teacherRoleBtn').disabled=!state.rolesAssigned;qs('#teacherRoleBtn').textContent=showTeacherRoles?'🙈 역할 가리기':'👁 역할 보기';qs('#studentLockBtn').disabled=!state.rolesAssigned;qs('#studentLockBtn').textContent=state.roleLocked?'🔓 학생 역할 다시 열기':'🔒 학생 역할 잠금';qs('#lockState').textContent=state.roleLocked?'학생 역할 잠김':'학생 역할 열림';qs('#lockState').className='pill '+(state.roleLocked?'dead':'live');
   const nightOpen=state.nightAction?.status==='open';
-  qs('#playerList').innerHTML=state.players.length?state.players.map(p=>`<div class="player"><div><div class="name">${escapeHtml(p.name)} ${p.connected?'<span class="pill live">접속</span>':''}</div><div class="small muted">${p.alive?'생존':'탈락'} ${p.hasVoted?'· 투표 완료':''}${nightOpen&&p.alive?(p.nightDone?' · 🌙 밤 행동 완료':' · 🌙 대기'):''}</div></div>${roleBadge(p)}${!state.rolesAssigned?`<button class="btn btn-danger kick" onclick="kick('${p.id}')">내보내기</button>`:`<span class="pill ${p.alive?'live':'dead'}">${p.alive?'생존':'탈락'}</span>`}</div>`).join(''):'<div class="empty">아직 입장한 학생이 없습니다.<br>QR을 화면에 보여 주세요.</div>';
-  renderVote();renderNight();renderHistory();
+  qs('#playerList').innerHTML=state.players.length?state.players.map(p=>`<div class="player"><div><div class="name">${escapeHtml(p.name)} ${p.virtual?'<span class="pill test-pill">🧪 가상</span>':(p.connected?'<span class="pill live">접속</span>':'')}</div><div class="small muted">${p.alive?'생존':'탈락'} ${p.hasVoted?'· 투표 완료':''}${nightOpen&&p.alive?(p.nightDone?' · 🌙 밤 행동 완료':' · 🌙 대기'):''}</div>${p.virtual&&p.previewUrl?`<button class="btn btn-light test-preview" onclick="openPreview('${p.id}')">📱 학생 화면 보기</button>`:''}</div>${roleBadge(p)}${!state.rolesAssigned?`<button class="btn btn-danger kick" onclick="kick('${p.id}')">내보내기</button>`:`<span class="pill ${p.alive?'live':'dead'}">${p.alive?'생존':'탈락'}</span>`}</div>`).join(''):'<div class="empty">아직 입장한 학생이 없습니다.<br>QR을 화면에 보여 주세요.</div>';
+  renderVote();renderNight();renderHistory();renderTest();
 }
 function renderVote(){
   const c=qs('#voteControls'),a=qs('#voteArea');
@@ -95,12 +101,27 @@ function renderNight(){
   const p=n.progress||{eligible:0,completed:0},allDone=p.eligible>0&&p.completed>=p.eligible;
   el.innerHTML=`<div class="status-banner status-vote">🌙 학생들이 밤 행동 중입니다 · <b>${p.completed}/${p.eligible}명 완료</b></div><div class="night-progressbar"><span style="width:${p.eligible?Math.round(p.completed/p.eligible*100):0}%"></span></div><div class="night-summary" style="margin-top:14px"><span>🔪 마피아 현재 선택: <b>${escapeHtml(n.mafiaTargetName||(state.nightCapabilities?.mafiaAlive?'대기 중':'마피아 없음'))}</b></span><span>🩺 의사 현재 보호: <b>${escapeHtml(n.doctorTargetName||(state.nightCapabilities?.doctorAlive?'대기 중':'의사 없음'))}</b></span></div><p class="small muted">복수 마피아가 서로 다른 학생을 선택하면 다수 선택을 적용하고, 동률은 자동으로 한 명을 정합니다. 학생 개인의 더미 선택은 교사 화면에 표시되지 않습니다.</p><button class="btn btn-primary btn-block" onclick="resolveNight()" ${allDone?'':'disabled'}>✅ 밤 결과 적용</button>${allDone?'':'<p class="small muted" style="text-align:center">모든 생존 학생이 선택하면 버튼이 활성화됩니다.</p>'}`;
 }
+function renderTest(){
+  const virtuals=state.players.filter(p=>p.virtual), actions=qs('#testActions');
+  qs('#addVirtualBtn').disabled=state.rolesAssigned||state.playerCount>=40;
+  qs('#clearVirtualBtn').disabled=state.rolesAssigned||!virtuals.length;
+  if(!virtuals.length){actions.innerHTML='<div class="small muted">가상 학생을 추가하면 각 학생의 <b>학생 화면 보기</b> 버튼으로 역할별 화면도 직접 확인할 수 있습니다.</div>';return}
+  const buttons=[];
+  if(state.nightAction?.status==='open') buttons.push('<button class="btn btn-secondary btn-block" onclick="autoVirtualNight()">🌙 가상 학생 밤 행동 자동 선택</button>');
+  if(state.voteStatus==='open') buttons.push('<button class="btn btn-secondary btn-block" onclick="autoVirtualVote()">🗳️ 가상 학생 투표 자동 선택</button>');
+  actions.innerHTML=`<div class="notice test-notice"><b>가상 학생 ${virtuals.length}명</b><br><span class="small">역할 보기로 경찰을 찾은 뒤 해당 학생의 ‘학생 화면 보기’를 열면 경찰 조사 결과까지 확인할 수 있습니다.</span></div>${buttons.join('')}`;
+}
+function openPreview(id){const p=state.players.find(x=>x.id===id);if(!p?.previewUrl)return;window.open(p.previewUrl,'_blank','noopener')}
 function renderHistory(){
   const el=qs('#history'),votes=state.voteHistory||[],nights=state.nightHistory||[];
   if(!votes.length&&!nights.length){el.innerHTML='<div class="empty">아직 종료된 기록이 없습니다.</div>';return}
   const days=[...new Set([...votes.map(v=>v.day),...nights.map(n=>n.day)])].sort((a,b)=>b-a);
   el.innerHTML=days.map(d=>{const v=votes.find(x=>x.day===d),n=nights.find(x=>x.day===d);return `<div class="history"><b>${d}일차</b>${v?` · 낮 탈락: <b>${escapeHtml(v.eliminatedName||'없음')}</b><div class="small muted">${(v.tally||[]).map(t=>`${escapeHtml(t.name)} ${t.votes}표`).join(' · ')||'투표 없음'}</div>`:''}${n?`<div class="small" style="margin-top:5px">🌙 마피아 선택 <b>${escapeHtml(n.mafiaTargetName||'없음')}</b> · 의사 보호 <b>${escapeHtml(n.doctorTargetName||'없음')}</b> · 결과 <b>${n.protected?'보호 성공':escapeHtml(n.eliminatedName||'탈락 없음')}</b></div>`:''}</div>`}).join('')
 }
+async function addVirtual(){try{const n=Math.max(1,Math.min(12,+qs('#virtualN').value||6));const r=await api('/api/rooms/'+code+'/test/virtual/add',h('POST',{count:n}));flash(qs('#testMsg'),`가상 학생 ${r.added}명을 추가했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
+async function clearVirtual(){if(!confirm('가상 학생을 모두 삭제할까요?'))return;try{const r=await api('/api/rooms/'+code+'/test/virtual/clear',h('POST'));flash(qs('#testMsg'),`가상 학생 ${r.removed}명을 삭제했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
+async function autoVirtualNight(){try{const r=await api('/api/rooms/'+code+'/test/virtual/night-auto',h('POST'));flash(qs('#testMsg'),`가상 학생 ${r.acted}명이 밤 행동을 완료했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
+async function autoVirtualVote(){try{const r=await api('/api/rooms/'+code+'/test/virtual/vote-auto',h('POST'));flash(qs('#testMsg'),`가상 학생 ${r.voted}명이 투표를 완료했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
 async function assign(){try{await api('/api/rooms/'+code+'/assign',h('POST',{mafia:+qs('#mafiaN').value,police:+qs('#policeN').value,doctor:+qs('#doctorN').value,mafiaKnowEachOther:qs('#mafiaKnow').checked}));await load(true)}catch(e){flash(qs('#roleMsg'),e.message,'notice error')}}
 async function toggleTeacherRoles(){showTeacherRoles=!showTeacherRoles;await load(true)}
 async function toggleStudentLock(){try{await api('/api/rooms/'+code+'/role-lock',h('POST',{locked:!state.roleLocked}));await load(true)}catch(e){flash(qs('#roleMsg'),e.message,'notice error')}}
@@ -112,7 +133,7 @@ async function startNight(){if(!confirm('밤 행동을 시작할까요? 학생 �
 async function resolveNight(){if(!confirm('학생들의 선택으로 밤 결과를 적용할까요?'))return;try{const r=await api('/api/rooms/'+code+'/night/resolve',h('POST'));if(r.result?.protected)flash(qs('#nightMsg'),'의사가 같은 학생을 보호했습니다. 탈락자는 없습니다.','notice success');else if(r.result?.eliminatedName)flash(qs('#nightMsg'),r.result.eliminatedName+' 학생이 밤에 탈락했습니다.','notice');await load(true)}catch(e){flash(qs('#nightMsg'),e.message,'notice error')}}
 async function nextDay(){try{await api('/api/rooms/'+code+'/day/next',h('POST'));await load(true)}catch(e){flash(qs('#voteMsg'),e.message,'notice error')}}
 qs('#copyUrlBtn').onclick=async()=>{try{await navigator.clipboard.writeText(state.joinUrl);qs('#copyUrlBtn').textContent='복사됨';setTimeout(()=>qs('#copyUrlBtn').textContent='주소 복사',1200)}catch{prompt('아래 주소를 복사하세요.',state.joinUrl)}};
-qs('#assignBtn').onclick=assign;qs('#teacherRoleBtn').onclick=toggleTeacherRoles;qs('#studentLockBtn').onclick=toggleStudentLock;
+qs('#assignBtn').onclick=assign;qs('#teacherRoleBtn').onclick=toggleTeacherRoles;qs('#studentLockBtn').onclick=toggleStudentLock;qs('#addVirtualBtn').onclick=addVirtual;qs('#clearVirtualBtn').onclick=clearVirtual;
 qs('#resetBtn').onclick=async()=>{if(!confirm('역할과 투표 기록을 모두 초기화할까요? 학생은 방에 그대로 남습니다.'))return;try{await api('/api/rooms/'+code+'/reset',h('POST'));showTeacherRoles=false;await load(true)}catch(e){alert(e.message)}};
 qs('#deleteBtn').onclick=async()=>{if(!confirm('방을 완전히 종료할까요? 학생들도 더 이상 접속할 수 없습니다.'))return;try{await api('/api/rooms/'+code+'/delete',h('POST'));localStorage.removeItem('mafia_admin_'+code);location.href='/'}catch(e){alert(e.message)}};
 load();setInterval(load,1500);
