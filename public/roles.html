@@ -5,30 +5,30 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>전체 학생 역할 · 우리 반 마피아</title>
   <link rel="stylesheet" href="/styles.css">
+  
   <style>
-    body{background:#f6f7fb}
-    .roles-shell{width:min(700px,calc(100% - 24px));margin:0 auto;padding:18px 0 34px}
-    .roles-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
-    .roles-head h1{font-size:24px;margin:2px 0 4px}
-    .roles-card{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 8px 28px rgba(31,35,48,.06);overflow:hidden}
-    .roles-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px;border-bottom:1px solid var(--line);background:#fafbfe}
-    .role-count{padding:10px 8px;border:1px solid var(--line);border-radius:13px;text-align:center;background:#fff}
-    .role-count b{display:block;font-size:20px;color:var(--text)}
-    .role-count span{font-size:12px;color:var(--muted)}
+    .roles-shell{width:min(760px,calc(100% - 24px));margin:0 auto;padding:22px 0 38px;position:relative;z-index:1}
+    .roles-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .roles-head h1{font-size:28px;margin:2px 0 4px;color:#4f4128}
+    .roles-card{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,243,231,.98));border:2px solid #cbb889;border-radius:28px;box-shadow:0 8px 0 rgba(181,160,112,.85),0 18px 32px rgba(79,58,26,.18);overflow:hidden}
+    .roles-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:16px;border-bottom:1px solid rgba(126,108,70,.16);background:rgba(245,239,219,.85)}
+    .role-count{padding:12px 8px;border:2px solid #d4c39c;border-radius:18px;text-align:center;background:linear-gradient(180deg,#fffef8,#f2ead7)}
+    .role-count b{display:block;font-size:22px;color:#4d4029}
+    .role-count span{font-size:12px;color:#7e7054;font-weight:800}
     .roles-table{width:100%;border-collapse:collapse}
-    .roles-table th,.roles-table td{padding:13px 16px;border-top:1px solid var(--line);text-align:left}
-    .roles-table thead th{border-top:0;font-size:12px;color:var(--muted);font-weight:850;background:#fff}
-    .roles-table tbody td{font-size:15px}
+    .roles-table th,.roles-table td{padding:14px 16px;border-top:1px solid rgba(126,108,70,.14);text-align:left}
+    .roles-table thead th{border-top:0;font-size:12px;color:#7a6b50;font-weight:900;background:rgba(255,255,255,.65)}
+    .roles-table tbody td{font-size:15px;color:#4d4029}
     .roles-table .student-name{font-weight:900}
     .roles-table .role-name{font-weight:950;letter-spacing:.01em}
-    .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#27ae60;margin-right:6px;vertical-align:1px}
-    .status-dot.dead{background:#b8bdc9}
-    .roles-footer{padding:12px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);text-align:center}
-    .roles-empty{padding:42px 20px;text-align:center;color:var(--muted)}
-    @media(max-width:560px){.roles-summary{grid-template-columns:repeat(2,1fr)}.roles-table th,.roles-table td{padding:12px 10px}.roles-head h1{font-size:20px}}
+    .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5f9b39;margin-right:6px;vertical-align:1px}
+    .status-dot.dead{background:#b7aa8f}
+    .roles-footer{padding:12px 16px;border-top:1px solid rgba(126,108,70,.14);font-size:12px;color:#7c715f;text-align:center;background:rgba(255,251,240,.65)}
+    .roles-empty{padding:42px 20px;text-align:center;color:#7e7054}
+    @media(max-width:560px){.roles-summary{grid-template-columns:repeat(2,1fr)}.roles-table th,.roles-table td{padding:12px 10px}.roles-head h1{font-size:22px}}
   </style>
 </head>
-<body>
+<body class="theme-farm roles-theme">
 <div class="roles-shell">
   <div class="roles-head">
     <div><div class="small muted">교사용 비밀 화면</div><h1>전체 학생 역할</h1><div id="roomInfo" class="small muted"></div></div>

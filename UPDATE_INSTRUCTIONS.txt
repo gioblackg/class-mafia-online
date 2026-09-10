@@ -1,13 +1,1 @@
-우리 반 마피아 Online v2.7 업데이트
-
-1. class-mafia-online-v2.7-update.zip 압축을 풉니다.
-2. GitHub의 기존 class-mafia-online 저장소에서 Add file → Upload files를 누릅니다.
-3. 압축을 푼 폴더 안의 파일과 public 폴더를 모두 올립니다.
-4. Commit changes를 누릅니다.
-5. Render가 자동 재배포되며 기존 사이트 주소는 그대로 유지됩니다.
-
-이번 버전 핵심 변경
-- 교사 메인 학생 목록에서 역할 표시 제거
-- 역할 배정 후 `전체 역할 새창` 버튼 활성화
-- 별도 새 창에서 전체 학생의 역할/생존 상태/역할별 인원수 한눈에 확인
-- 역할 현황 새 창은 자동 갱신
+기존 저장소에 이 폴더의 파일을 업로드하여 덮어쓰기 후 Commit changes 하세요.
