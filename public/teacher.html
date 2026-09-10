@@ -132,7 +132,7 @@ function renderFlow(){
   const voteDone=(state.voteHistory||[]).some(h=>h.day===state.day);
   if(n.status==='open'){
     const p=n.progress||{eligible:0,completed:0},allDone=p.eligible>0&&p.completed>=p.eligible;
-    setFlow('🌙 밤 행동',`${p.completed}/${p.eligible}명`,`<div class="action-center"><div class="night-moon small-moon">🌙</div><p><b>학생들이 밤 행동 중입니다.</b></p><div class="night-progressbar"><span style="width:${p.eligible?Math.round(p.completed/p.eligible*100):0}%"></span></div><button class="btn btn-primary btn-block" onclick="resolveNight()" ${allDone?'':'disabled'}>밤 결과 확인</button>${allDone?'':'<div class="small muted center-text">모든 생존 학생이 선택하면 확인할 수 있습니다.</div>'}</div>`,'');return;
+    setFlow('🌙 밤 행동',`${p.completed}/${p.eligible}명`,`<div class="action-center"><div class="night-moon small-moon">🌙</div><p><b>학생들이 밤 행동 중입니다.</b></p><div class="night-progressbar"><span style="width:${p.eligible?Math.round(p.completed/p.eligible*100):0}%"></span></div><button class="btn btn-primary btn-block" onclick="resolveNight()">밤 결과 확인</button>${allDone?'<div class="small muted center-text">모든 학생의 밤 행동이 완료되었습니다.</div>':`<div class="small muted center-text">미완료 ${Math.max(0,p.eligible-p.completed)}명 · 교사가 그대로 진행할 수 있습니다.</div>`}</div>`,'');return;
   }
   if(n.status==='resolved'){
     const r=n.result||{},prs=Array.isArray(r.policeResults)?r.policeResults:[];
@@ -188,7 +188,14 @@ async function startVote(){try{await api('/api/rooms/'+code+'/vote/start',h('POS
 async function endVote(){try{await api('/api/rooms/'+code+'/vote/end',h('POST'));await load(true)}catch(e){flash(qs('#voteMsg'),e.message,'notice error')}}
 async function eliminate(id){const name=state.players.find(p=>p.id===id)?.name||'이 학생';if(!confirm(`${name} 학생을 탈락 처리할까요?`))return;try{await api('/api/rooms/'+code+'/eliminate',h('POST',{playerId:id}));await load(true)}catch(e){flash(qs('#voteMsg'),e.message,'notice error')}}
 async function startNight(){if(!confirm('밤 행동을 시작할까요? 학생 역할 화면이 자동으로 잠깁니다.'))return;try{await api('/api/rooms/'+code+'/night/start',h('POST'));await load(true)}catch(e){flash(qs('#nightMsg'),e.message,'notice error')}}
-async function resolveNight(){try{const r=await api('/api/rooms/'+code+'/night/resolve',h('POST'));if(r.result?.protected)flash(qs('#nightMsg'),'의사가 보호했습니다. 탈락자는 없습니다.','notice success');await load(true)}catch(e){flash(qs('#nightMsg'),e.message,'notice error')}}
+async function resolveNight(){
+  const p=state?.nightAction?.progress||{completed:0,eligible:0};
+  if(p.completed<p.eligible){
+    const missing=p.eligible-p.completed;
+    if(!confirm(`아직 밤 행동을 하지 않은 학생이 ${missing}명 있습니다.\n미완료 학생의 행동은 없는 것으로 처리하고 계속할까요?`))return;
+  }
+  try{const r=await api('/api/rooms/'+code+'/night/resolve',h('POST'));if(r.result?.protected)flash(qs('#nightMsg'),'의사가 보호했습니다. 탈락자는 없습니다.','notice success');await load(true)}catch(e){flash(qs('#nightMsg'),e.message,'notice error')}
+}
 async function nextDay(){try{await api('/api/rooms/'+code+'/day/next',h('POST'));await load(true)}catch(e){flash(qs('#voteMsg'),e.message,'notice error')}}
 qs('#copyUrlBtn').onclick=async()=>{try{await navigator.clipboard.writeText(state.joinUrl);qs('#copyUrlBtn').textContent='✅ 복사됨';setTimeout(()=>qs('#copyUrlBtn').textContent='🔗 접속 주소 복사',1200)}catch{prompt('아래 주소를 복사하세요.',state.joinUrl)}};
 qs('#openQrBtn').onclick=openQrModal;qs('#closeQrBtn').onclick=closeQrModal;qs('#qrModal').addEventListener('click',e=>{if(e.target===qs('#qrModal'))closeQrModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!qs('#qrModal').hidden)closeQrModal()});

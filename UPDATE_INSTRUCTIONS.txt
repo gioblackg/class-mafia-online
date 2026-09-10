@@ -1,1 +1,1 @@
-기존 저장소에 이 폴더의 파일을 업로드하여 덮어쓰기 후 Commit changes 하세요.
+기존 GitHub 저장소에 이 폴더의 파일을 같은 위치에 덮어 업로드한 뒤 Commit changes 하세요.

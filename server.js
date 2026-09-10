@@ -13,7 +13,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'rooms.json');
 const ROOM_TTL = 6 * 60 * 60 * 1000;
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.10.0';
 const PID_FILE = path.join(__dirname, '.mafia-server.pid');
 const HOSTED = process.env.APP_MODE === 'hosted' || !!process.env.RENDER || !!process.env.RAILWAY_ENVIRONMENT || !!process.env.FLY_APP_NAME;
 const PERSIST_TO_DISK = !HOSTED && process.env.PERSIST_ROOMS !== '0';
@@ -39,6 +39,8 @@ function now(){ return Date.now(); }
 function uniqueCode(){ for(let i=0;i<100;i++){ const c=String(crypto.randomInt(100000,1000000)); if(!rooms[c]) return c; } throw new Error('방 코드 생성 실패'); }
 function freshNight(day){ return {day,status:'idle',startedAt:null,actions:{},resolved:false,result:null}; }
 function normalizeRoom(r){
+  if (!Array.isArray(r.players)) r.players = [];
+  r.players.forEach(p=>{ if (typeof p.deviceId !== 'string') p.deviceId = ''; });
   if (typeof r.roleLocked !== 'boolean') r.roleLocked = false;
   if (!Array.isArray(r.nightHistory)) r.nightHistory = [];
   if (!r.nightAction || r.nightAction.day !== r.day) r.nightAction = freshNight(r.day || 1);
@@ -194,9 +196,30 @@ async function api(req,res,u){
     const base=publicBase(req); const join=`${base}/student.html?room=${r.code}`; return text(res,200,qrSvg(join),'image/svg+xml');
   }
   if(method==='POST'&&action==='join'){
+    const deviceId=String(b.deviceId||'').trim().slice(0,120);
+    // 같은 태블릿/브라우저가 다시 들어오면 새 학생을 만들지 않고 기존 학생을 복원한다.
+    if(deviceId){
+      const existingByDevice=r.players.find(p=>!p.virtual&&p.deviceId===deviceId);
+      if(existingByDevice){
+        existingByDevice.lastSeenAt=now(); saveRooms();
+        return json(res,200,{playerId:existingByDevice.id,playerToken:existingByDevice.token,reconnected:true,room:publicRoom(r)});
+      }
+    }
     if(r.players.length>=40)return json(res,400,{error:'한 방에는 최대 40명까지 입장할 수 있습니다.'});
-    const name=String(b.name||'').trim().slice(0,20); if(!name)return json(res,400,{error:'번호 또는 별명을 입력해 주세요.'}); if(r.players.some(p=>p.name===name))return json(res,409,{error:'이미 사용 중인 번호 또는 별명입니다.'}); if(r.rolesAssigned)return json(res,400,{error:'이미 역할 배정이 시작된 방입니다. 선생님께 문의해 주세요.'});
-    const p={id:rand(10),token:rand(24),name,role:null,alive:true,joinedAt:now(),lastSeenAt:now()}; r.players.push(p); saveRooms(); return json(res,200,{playerId:p.id,playerToken:p.token,room:publicRoom(r)});
+    const name=String(b.name||'').trim().slice(0,20);
+    if(!name)return json(res,400,{error:'번호 또는 별명을 입력해 주세요.'});
+    if(r.players.some(p=>p.name===name))return json(res,409,{error:'이미 사용 중인 번호 또는 별명입니다. 처음 입장했던 태블릿에서 다시 접속해 주세요.'});
+    if(r.rolesAssigned)return json(res,400,{error:'이미 역할 배정이 시작된 방입니다. 처음 입장했던 태블릿에서 다시 접속해 주세요.'});
+    const p={id:rand(10),token:rand(24),deviceId,name,role:null,alive:true,joinedAt:now(),lastSeenAt:now()};
+    r.players.push(p); saveRooms(); return json(res,200,{playerId:p.id,playerToken:p.token,reconnected:false,room:publicRoom(r)});
+  }
+  if(method==='POST'&&action==='reconnect'){
+    const deviceId=String(b.deviceId||'').trim().slice(0,120);
+    if(!deviceId)return json(res,400,{error:'재접속 정보를 찾을 수 없습니다.'});
+    const p=r.players.find(x=>!x.virtual&&x.deviceId===deviceId);
+    if(!p)return json(res,404,{error:'이 기기의 기존 입장 기록이 없습니다.'});
+    p.lastSeenAt=now(); saveRooms();
+    return json(res,200,{playerId:p.id,playerToken:p.token,reconnected:true,room:publicRoom(r)});
   }
   if(method==='GET'&&action==='me'){
     const token=header(req,'x-player-token')||u.searchParams.get('playerToken')||''; const p=r.players.find(x=>x.token===token); if(!p)return json(res,403,{error:'학생 인증 정보가 없습니다. 다시 입장해 주세요.'}); p.lastSeenAt=now(); return json(res,200,studentState(r,p));
@@ -246,7 +269,10 @@ async function api(req,res,u){
     saveRooms(); return json(res,200,{ok:true,voted,state:teacherState(r,false)});
   }
   if(method==='POST'&&action==='assign'){
-    if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'}); const n=r.players.length; if(n<3)return json(res,400,{error:'학생이 3명 이상 입장한 뒤 역할을 배정해 주세요.'});
+    if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'});
+    // 역할은 한 게임에서 단 한 번만 배정한다. 중복 클릭/중복 요청으로 역할이 바뀌는 것을 방지한다.
+    if(r.rolesAssigned)return json(res,200,{ok:true,alreadyAssigned:true,state:teacherState(r,false)});
+    const n=r.players.length; if(n<3)return json(res,400,{error:'학생이 3명 이상 입장한 뒤 역할을 배정해 주세요.'});
     const mafia=Math.max(1,parseInt(b.mafia,10)||0),police=Math.max(0,parseInt(b.police,10)||0),doctor=Math.max(0,parseInt(b.doctor,10)||0); if(mafia+police+doctor>n)return json(res,400,{error:'설정한 특수 역할 수가 전체 학생 수보다 많습니다.'});
     const totalDays=Math.max(1,Math.min(30,parseInt(b.totalDays,10)||5));
     const roles=[...Array(mafia).fill('mafia'),...Array(police).fill('police'),...Array(doctor).fill('doctor'),...Array(n-mafia-police-doctor).fill('citizen')], mix=shuffle(roles);
@@ -303,12 +329,10 @@ async function api(req,res,u){
     if(r.nightAction.status!=='open')return json(res,400,{error:'진행 중인 밤 행동이 없습니다.'});
     if(r.nightAction.resolved)return json(res,400,{error:'이번 일차의 밤 결과가 이미 적용되었습니다.'});
     const progress=nightProgress(r);
-    if(progress.completed<progress.eligible)return json(res,400,{error:`아직 밤 행동을 완료하지 않은 학생이 있습니다. (${progress.completed}/${progress.eligible}명)`});
+    // 미완료 학생이 있어도 교사가 밤을 종료할 수 있다. 미완료 행동은 '선택 없음'으로 처리한다.
     const summary=currentNightSummary(r);
     const target=r.players.find(p=>p.id===summary.mafiaTargetId&&p.alive);
     const doctorTarget=r.players.find(p=>p.id===summary.doctorTargetId&&p.alive);
-    const mafiaAlive=r.players.some(p=>p.alive&&p.role==='mafia');
-    if(mafiaAlive&&!target)return json(res,400,{error:'마피아의 선택 결과를 확인할 수 없습니다.'});
     const protectedSuccess=!!target&&!!doctorTarget&&target.id===doctorTarget.id;
     const policeResults=r.players.filter(p=>p.alive&&p.role==='police').map(police=>{
       const targetId=r.nightAction.actions?.[police.id]||null;
@@ -317,7 +341,7 @@ async function api(req,res,u){
     }).filter(x=>x.targetId);
     let eliminated=null;
     if(target&&!protectedSuccess){ target.alive=false; eliminated=target; }
-    const result={day:r.day,resolvedAt:now(),mafiaTargetId:target?.id||null,mafiaTargetName:target?.name||null,doctorTargetId:doctorTarget?.id||null,doctorTargetName:doctorTarget?.name||null,policeResults,protected:protectedSuccess,eliminatedPlayerId:eliminated?.id||null,eliminatedName:eliminated?.name||null};
+    const result={day:r.day,resolvedAt:now(),mafiaTargetId:target?.id||null,mafiaTargetName:target?.name||null,doctorTargetId:doctorTarget?.id||null,doctorTargetName:doctorTarget?.name||null,policeResults,protected:protectedSuccess,eliminatedPlayerId:eliminated?.id||null,eliminatedName:eliminated?.name||null,nightCompleted:progress.completed,nightEligible:progress.eligible};
     r.nightAction.status='resolved';r.nightAction.resolved=true;r.nightAction.result=result;r.nightHistory.push(result);
     if(r.day>=r.settings.totalDays) r.status='finished';
     saveRooms();return json(res,200,{ok:true,result,finished:r.status==='finished'});

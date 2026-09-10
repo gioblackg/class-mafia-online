@@ -27,3 +27,15 @@ const roleMeta = {
   citizen:{label:'시민',emoji:'🙂',desc:'친구들의 이야기를 듣고 마피아를 찾아보세요.'}
 };
 function flash(el,msg,type='notice'){ el.className=type; el.textContent=msg; el.hidden=false; setTimeout(()=>{el.hidden=true},4500); }
+
+function getMafiaDeviceId(){
+  const key='mafia_device_id_v1';
+  let id='';
+  try{id=localStorage.getItem(key)||''}catch{}
+  if(!id){
+    try{id=(globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():('dev_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2))}
+    catch{id='dev_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)}
+    try{localStorage.setItem(key,id)}catch{}
+  }
+  return id;
+}
