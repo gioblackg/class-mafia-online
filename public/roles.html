@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>전체 학생 역할 · 우리 반 마피아</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    body{background:#f6f7fb}
+    .roles-shell{width:min(700px,calc(100% - 24px));margin:0 auto;padding:18px 0 34px}
+    .roles-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+    .roles-head h1{font-size:24px;margin:2px 0 4px}
+    .roles-card{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 8px 28px rgba(31,35,48,.06);overflow:hidden}
+    .roles-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px;border-bottom:1px solid var(--line);background:#fafbfe}
+    .role-count{padding:10px 8px;border:1px solid var(--line);border-radius:13px;text-align:center;background:#fff}
+    .role-count b{display:block;font-size:20px;color:var(--text)}
+    .role-count span{font-size:12px;color:var(--muted)}
+    .roles-table{width:100%;border-collapse:collapse}
+    .roles-table th,.roles-table td{padding:13px 16px;border-top:1px solid var(--line);text-align:left}
+    .roles-table thead th{border-top:0;font-size:12px;color:var(--muted);font-weight:850;background:#fff}
+    .roles-table tbody td{font-size:15px}
+    .roles-table .student-name{font-weight:900}
+    .roles-table .role-name{font-weight:950;letter-spacing:.01em}
+    .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#27ae60;margin-right:6px;vertical-align:1px}
+    .status-dot.dead{background:#b8bdc9}
+    .roles-footer{padding:12px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);text-align:center}
+    .roles-empty{padding:42px 20px;text-align:center;color:var(--muted)}
+    @media(max-width:560px){.roles-summary{grid-template-columns:repeat(2,1fr)}.roles-table th,.roles-table td{padding:12px 10px}.roles-head h1{font-size:20px}}
+  </style>
+</head>
+<body>
+<div class="roles-shell">
+  <div class="roles-head">
+    <div><div class="small muted">교사용 비밀 화면</div><h1>전체 학생 역할</h1><div id="roomInfo" class="small muted"></div></div>
+    <button class="btn btn-light compact-btn" onclick="window.close()">닫기</button>
+  </div>
+  <div id="fatal" class="notice error" hidden></div>
+  <section id="content" class="roles-card" hidden>
+    <div id="summary" class="roles-summary"></div>
+    <div id="tableWrap"></div>
+    <div class="roles-footer">이 화면은 교사만 확인하세요. 역할 정보는 자동으로 최신 상태로 갱신됩니다.</div>
+  </section>
+</div>
+<script src="/common.js"></script>
+<script>
+const code=new URLSearchParams(location.search).get('room');
+const token=localStorage.getItem('mafia_admin_'+code);
+let loading=false;
+function showFatal(msg){const el=qs('#fatal');el.textContent=msg;el.hidden=false;qs('#content').hidden=true}
+function sortPlayers(players){return [...players].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko',{numeric:true,sensitivity:'base'}))}
+function render(state){
+  qs('#fatal').hidden=true;qs('#content').hidden=false;
+  qs('#roomInfo').textContent=`방 ${state.code} · ${state.day}/${state.totalDays}일차 · ${state.playerCount}명`;
+  const counts={mafia:0,police:0,doctor:0,citizen:0};
+  state.players.forEach(p=>{if(counts[p.role]!==undefined)counts[p.role]++});
+  qs('#summary').innerHTML=[['마피아',counts.mafia],['경찰',counts.police],['의사',counts.doctor],['시민',counts.citizen]].map(([label,n])=>`<div class="role-count"><b>${n}</b><span>${label}</span></div>`).join('');
+  const players=sortPlayers(state.players);
+  if(!state.rolesAssigned){qs('#tableWrap').innerHTML='<div class="roles-empty">아직 역할이 배정되지 않았습니다.</div>';return}
+  qs('#tableWrap').innerHTML=`<table class="roles-table"><thead><tr><th>학생</th><th>역할</th><th>상태</th></tr></thead><tbody>${players.map(p=>`<tr><td class="student-name">${escapeHtml(p.name)}${p.virtual?' <span class="pill test-pill">가상</span>':''}</td><td class="role-name">${escapeHtml(roleMeta[p.role]?.label||'?')}</td><td><span class="status-dot ${p.alive?'':'dead'}"></span>${p.alive?'생존':'탈락'}</td></tr>`).join('')}</tbody></table>`;
+}
+async function load(){
+  if(loading)return;
+  if(!/^\d{6}$/.test(code||'')||!token){showFatal('교사 권한 정보를 찾을 수 없습니다. 교사 진행판에서 다시 열어 주세요.');return}
+  loading=true;
+  try{const state=await api('/api/rooms/'+code+'/teacher?showRoles=1',{headers:{'x-admin-token':token}});render(state)}
+  catch(e){showFatal(e.message)}finally{loading=false}
+}
+load();setInterval(load,1500);
+</script>
+</body>
+</html>
