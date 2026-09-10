@@ -215,3 +215,42 @@ body.theme-farm .footer{color:#edf6d9;text-shadow:0 1px 0 rgba(75,116,33,.3)}
   body.theme-farm .brand-badge{width:42px;height:42px}
   body.theme-farm .hero h1{font-size:38px}
 }
+
+
+/* v2.11: student self rename */
+.student-rename-btn{border:0;background:transparent;color:#6d633f;font-size:12px;font-weight:900;padding:5px 7px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.student-rename-btn:hover{background:rgba(255,255,255,.55)}
+body.theme-farm .student-rename-btn{border:1px solid #d6c49a;background:linear-gradient(180deg,#fffef8,#f1ead9);color:#5b4b32;box-shadow:0 2px 0 rgba(181,160,112,.65)}
+body.theme-farm .student-rename-btn:active{transform:translateY(1px);box-shadow:0 1px 0 rgba(181,160,112,.65)}
+@media(max-width:520px){.student-identity .room-mini{width:auto;margin-left:auto}.student-rename-btn{font-size:11px;padding:5px 6px}}
+
+
+/* v2.12: full-screen teacher night-result reveal */
+.night-result-modal[hidden]{display:none}
+.night-result-modal{position:fixed;inset:0;z-index:10020;background:rgba(38,54,24,.72);display:grid;place-items:center;padding:20px}
+.night-result-panel{width:min(1040px,96vw);min-height:min(760px,92vh);max-height:94vh;overflow:auto;background:linear-gradient(180deg,#fffef8,#f4edda);border:3px solid #cbb786;border-radius:32px;box-shadow:0 10px 0 rgba(153,132,82,.9),0 30px 90px rgba(28,39,17,.35);padding:30px;display:flex;flex-direction:column}
+.night-result-close{z-index:10030}
+.night-result-head{text-align:center;margin-bottom:24px}
+.night-result-kicker{font-size:13px;font-weight:900;color:#78694d}
+.night-result-title{font-size:clamp(32px,5vw,54px);font-weight:950;color:#4e422c;letter-spacing:-.035em;margin:4px 0 6px}
+.night-result-help{font-size:15px;color:#7e7054;font-weight:800}
+.night-reveal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start}
+.night-reveal-card{border:2px solid #cdbb90;border-radius:24px;background:linear-gradient(180deg,#fffef9,#f2ead7);box-shadow:0 6px 0 rgba(181,160,112,.82),0 14px 22px rgba(81,60,28,.10);overflow:hidden}
+.night-reveal-card.revealed{border-color:#9dc866;box-shadow:0 6px 0 rgba(139,180,82,.82),0 14px 22px rgba(81,60,28,.10)}
+.night-reveal-button{width:100%;border:0;background:transparent;color:#55472f;padding:26px 18px 22px;cursor:pointer;font-weight:950;display:flex;flex-direction:column;align-items:center;gap:7px}
+.night-reveal-button:hover{background:rgba(244,249,232,.7)}
+.night-reveal-button small{font-size:12px;color:#86775d;font-weight:850}
+.night-reveal-icon{font-size:44px;line-height:1}
+.night-reveal-content{border-top:2px dashed #d9c69d;padding:22px 16px;min-height:138px;display:grid;place-items:center;text-align:center;background:rgba(255,255,255,.52)}
+.night-reveal-value{font-size:clamp(25px,3.5vw,38px);font-weight:950;color:#4e422c;word-break:keep-all}
+.night-reveal-police{width:100%;display:flex;flex-direction:column;gap:10px}
+.night-reveal-police-row{padding:10px 12px;border-radius:14px;background:#fffdf6;border:1px solid #dac8a1;display:flex;flex-direction:column;gap:4px}
+.night-reveal-police-row b{font-size:21px;color:#4e422c}
+.night-reveal-police-row span{font-size:16px;font-weight:950;color:#597f34}
+.night-reveal-empty{font-size:18px;font-weight:900;color:#83755b}
+.night-final-reveal{margin-top:auto;padding:22px 18px 8px;text-align:center}
+.night-final-label{font-size:13px;font-weight:900;color:#7e7054;margin-bottom:6px}
+.night-final-value{font-size:clamp(28px,4vw,46px);font-weight:950;color:#4e422c;background:linear-gradient(180deg,#f5ffe8,#e3f1c7);border:2px solid #a5cc74;border-radius:22px;padding:20px;box-shadow:0 5px 0 rgba(143,184,87,.78)}
+.night-result-open-btn{margin-bottom:12px}
+.night-result-ready{font-size:23px;padding:24px}
+@media(max-width:760px){.night-result-modal{padding:8px}.night-result-panel{width:100%;min-height:94vh;border-radius:24px;padding:20px 14px}.night-reveal-grid{grid-template-columns:1fr;gap:13px}.night-reveal-button{padding:18px 14px;display:grid;grid-template-columns:44px 1fr auto;text-align:left}.night-reveal-icon{font-size:34px}.night-reveal-button small{justify-self:end}.night-reveal-content{min-height:90px;padding:16px 12px}.night-result-title{font-size:32px}.night-final-reveal{padding:18px 0 4px}}

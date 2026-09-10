@@ -88,6 +88,19 @@
     </div>
   </div>
 </div>
+
+<div id="nightResultModal" class="night-result-modal" hidden aria-modal="true" role="dialog" aria-label="밤 결과 크게 보기">
+  <button id="closeNightResultBtn" class="qr-modal-close night-result-close" type="button" aria-label="닫기">×</button>
+  <div class="night-result-panel">
+    <div class="night-result-head">
+      <div class="night-result-kicker">우리 반 마피아 · 밤 결과</div>
+      <div id="nightResultTitle" class="night-result-title">1일차 밤 결과</div>
+      <div class="night-result-help">버튼을 눌러 결과를 하나씩 확인하세요.</div>
+    </div>
+    <div id="nightRevealGrid" class="night-reveal-grid"></div>
+    <div id="nightFinalReveal" class="night-final-reveal" hidden></div>
+  </div>
+</div>
 <script src="/common.js"></script>
 <script>
 const code=new URLSearchParams(location.search).get('room');
@@ -111,6 +124,55 @@ function renderQrRoster(){
 }
 function openQrModal(){renderQrRoster();qs('#qrModal').hidden=false;document.body.classList.add('modal-open')}
 function closeQrModal(){qs('#qrModal').hidden=true;document.body.classList.remove('modal-open')}
+let nightRevealState={mafia:false,doctor:false,police:false};
+function nightResultData(){
+  const n=state?.nightAction||{};
+  return n.status==='resolved'?(n.result||{}):null;
+}
+function openNightResultModal(){
+  const r=nightResultData();
+  if(!r)return;
+  nightRevealState={mafia:false,doctor:false,police:false};
+  qs('#nightResultTitle').textContent=`${state.day}일차 밤 결과`;
+  renderNightRevealGrid(r);
+  qs('#nightFinalReveal').hidden=true;
+  qs('#nightFinalReveal').innerHTML='';
+  qs('#nightResultModal').hidden=false;
+  document.body.classList.add('modal-open');
+}
+function closeNightResultModal(){
+  qs('#nightResultModal').hidden=true;
+  if(qs('#qrModal').hidden)document.body.classList.remove('modal-open');
+}
+function renderNightRevealGrid(r){
+  const prs=Array.isArray(r.policeResults)?r.policeResults:[];
+  const mafiaText=escapeHtml(r.mafiaTargetName||'선택 없음');
+  const doctorText=escapeHtml(r.doctorTargetName||'선택 없음');
+  const policeText=prs.length
+    ? prs.map(x=>`<div class="night-reveal-police-row"><b>${escapeHtml(x.targetName||'대상 없음')}</b><span>${x.isMafia?'마피아입니다.':'마피아가 아닙니다.'}</span></div>`).join('')
+    : `<div class="night-reveal-empty">${state.nightCapabilities?.policeAlive?'조사 결과 없음':'생존 경찰 없음'}</div>`;
+  const items=[
+    {key:'mafia',icon:'🔪',label:'마피아 선택',value:`<div class="night-reveal-value">${mafiaText}</div>`},
+    {key:'doctor',icon:'🩺',label:'의사 보호',value:`<div class="night-reveal-value">${doctorText}</div>`},
+    {key:'police',icon:'🔎',label:'경찰 조사',value:`<div class="night-reveal-police">${policeText}</div>`}
+  ];
+  qs('#nightRevealGrid').innerHTML=items.map(item=>`<section class="night-reveal-card ${nightRevealState[item.key]?'revealed':''}"><button type="button" class="night-reveal-button" onclick="toggleNightReveal('${item.key}')"><span class="night-reveal-icon">${item.icon}</span><span>${item.label}</span><small>${nightRevealState[item.key]?'다시 가리기':'눌러서 확인'}</small></button><div class="night-reveal-content" ${nightRevealState[item.key]?'':'hidden'}>${item.value}</div></section>`).join('');
+  updateNightFinalReveal(r);
+}
+function toggleNightReveal(key){
+  const r=nightResultData();
+  if(!r)return;
+  nightRevealState[key]=!nightRevealState[key];
+  renderNightRevealGrid(r);
+}
+function updateNightFinalReveal(r){
+  const el=qs('#nightFinalReveal');
+  const all=nightRevealState.mafia&&nightRevealState.doctor&&nightRevealState.police;
+  if(!all){el.hidden=true;return}
+  const resultText=r.protected?'의사가 보호했습니다. 탈락자는 없습니다.':r.eliminatedName?`${escapeHtml(r.eliminatedName)} 탈락`:'탈락자 없음';
+  el.innerHTML=`<div class="night-final-label">최종 밤 결과</div><div class="night-final-value">${resultText}</div>`;
+  el.hidden=false;
+}
 function render(){
   const qrSrc='/api/rooms/'+state.code+'/qr';qs('#roomCode').textContent=state.code;qs('#topRoom').textContent='방 '+state.code;if(qs('#qr').getAttribute('src')!==qrSrc){qs('#qr').src=qrSrc;qs('#qrLarge').src=qrSrc}qs('#statPlayers').textContent=state.playerCount;qs('#statAlive').textContent=state.aliveCount;qs('#statDay').textContent=state.totalDays?`${state.day}/${state.totalDays}`:state.day;qs('#qrModalCode').textContent='방 '+state.code;renderQrRoster();
   qs('#roleSetupFields').hidden=state.rolesAssigned;
@@ -135,12 +197,9 @@ function renderFlow(){
     setFlow('🌙 밤 행동',`${p.completed}/${p.eligible}명`,`<div class="action-center"><div class="night-moon small-moon">🌙</div><p><b>학생들이 밤 행동 중입니다.</b></p><div class="night-progressbar"><span style="width:${p.eligible?Math.round(p.completed/p.eligible*100):0}%"></span></div><button class="btn btn-primary btn-block" onclick="resolveNight()">밤 결과 확인</button>${allDone?'<div class="small muted center-text">모든 학생의 밤 행동이 완료되었습니다.</div>':`<div class="small muted center-text">미완료 ${Math.max(0,p.eligible-p.completed)}명 · 교사가 그대로 진행할 수 있습니다.</div>`}</div>`,'');return;
   }
   if(n.status==='resolved'){
-    const r=n.result||{},prs=Array.isArray(r.policeResults)?r.policeResults:[];
-    const resultText=r.protected?'🩺 의사가 보호했습니다. 탈락자 없음':r.eliminatedName?`🌙 ${escapeHtml(r.eliminatedName)} 탈락`:'🌙 탈락자 없음';
-    const police=prs.length?prs.map(x=>`<div class="result-row"><span>🔎 경찰 조사</span><b>${escapeHtml(x.targetName||'대상 없음')} → ${x.isMafia?'마피아':'마피아 아님'}</b></div>`).join(''):`<div class="result-row"><span>🔎 경찰 조사</span><b>${state.nightCapabilities?.policeAlive?'결과 없음':'생존 경찰 없음'}</b></div>`;
     const finalDay=state.day>=state.totalDays||state.status==='finished';
-    const footer=finalDay?`<div class="game-finished-box"><b>🏁 ${state.totalDays}일간의 게임이 끝났습니다.</b><div class="small muted">필요하면 역할 보기로 최종 역할을 확인하세요.</div></div>`:`<button class="btn btn-secondary btn-block" onclick="nextDay()">➡️ ${state.day+1}일차 시작</button>`;
-    setFlow('밤 결과',finalDay?'게임 종료':'완료',`<div class="result-hero">${resultText}</div><div class="result-list"><div class="result-row"><span>🔪 마피아</span><b>${escapeHtml(r.mafiaTargetName||'없음')}</b></div><div class="result-row"><span>🩺 의사</span><b>${escapeHtml(r.doctorTargetName||'없음')}</b></div>${police}</div>${footer}`,'live');return;
+    const footer=finalDay?`<div class="game-finished-box"><b>🏁 ${state.totalDays}일간의 게임이 끝났습니다.</b><div class="small muted">필요하면 전체 역할 새창에서 최종 역할을 확인하세요.</div></div>`:`<button class="btn btn-secondary btn-block" onclick="nextDay()">➡️ ${state.day+1}일차 시작</button>`;
+    setFlow('밤 결과',finalDay?'게임 종료':'완료',`<div class="result-hero night-result-ready">🌙 밤 행동이 끝났습니다.</div><button class="btn btn-primary btn-block night-result-open-btn" onclick="openNightResultModal()">🌙 밤 결과 크게 보기</button>${footer}`,'live');return;
   }
   if(state.voteStatus==='open'){
     const p=state.voteProgress||{voted:0,eligible:0};
@@ -194,11 +253,15 @@ async function resolveNight(){
     const missing=p.eligible-p.completed;
     if(!confirm(`아직 밤 행동을 하지 않은 학생이 ${missing}명 있습니다.\n미완료 학생의 행동은 없는 것으로 처리하고 계속할까요?`))return;
   }
-  try{const r=await api('/api/rooms/'+code+'/night/resolve',h('POST'));if(r.result?.protected)flash(qs('#nightMsg'),'의사가 보호했습니다. 탈락자는 없습니다.','notice success');await load(true)}catch(e){flash(qs('#nightMsg'),e.message,'notice error')}
+  try{
+    await api('/api/rooms/'+code+'/night/resolve',h('POST'));
+    await load(true);
+    openNightResultModal();
+  }catch(e){flash(qs('#nightMsg'),e.message,'notice error')}
 }
 async function nextDay(){try{await api('/api/rooms/'+code+'/day/next',h('POST'));await load(true)}catch(e){flash(qs('#voteMsg'),e.message,'notice error')}}
 qs('#copyUrlBtn').onclick=async()=>{try{await navigator.clipboard.writeText(state.joinUrl);qs('#copyUrlBtn').textContent='✅ 복사됨';setTimeout(()=>qs('#copyUrlBtn').textContent='🔗 접속 주소 복사',1200)}catch{prompt('아래 주소를 복사하세요.',state.joinUrl)}};
-qs('#openQrBtn').onclick=openQrModal;qs('#closeQrBtn').onclick=closeQrModal;qs('#qrModal').addEventListener('click',e=>{if(e.target===qs('#qrModal'))closeQrModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!qs('#qrModal').hidden)closeQrModal()});
+qs('#openQrBtn').onclick=openQrModal;qs('#closeQrBtn').onclick=closeQrModal;qs('#qrModal').addEventListener('click',e=>{if(e.target===qs('#qrModal'))closeQrModal()});qs('#closeNightResultBtn').onclick=closeNightResultModal;qs('#nightResultModal').addEventListener('click',e=>{if(e.target===qs('#nightResultModal'))closeNightResultModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!qs('#nightResultModal').hidden)closeNightResultModal();else if(!qs('#qrModal').hidden)closeQrModal()}});
 qs('#assignBtn').onclick=assign;qs('#openRolesBtn').onclick=openRolesWindow;qs('#studentLockBtn').onclick=toggleStudentLock;qs('#addVirtualBtn').onclick=addVirtual;qs('#clearVirtualBtn').onclick=clearVirtual;
 qs('#resetBtn').onclick=async()=>{if(!confirm('역할과 기록을 모두 초기화할까요?'))return;try{await api('/api/rooms/'+code+'/reset',h('POST'));await load(true)}catch(e){alert(e.message)}};
 qs('#deleteBtn').onclick=async()=>{if(!confirm('방을 완전히 종료할까요?'))return;try{await api('/api/rooms/'+code+'/delete',h('POST'));localStorage.removeItem('mafia_admin_'+code);location.href='/'}catch(e){alert(e.message)}};

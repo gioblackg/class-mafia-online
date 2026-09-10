@@ -1,1 +1,1 @@
-기존 GitHub 저장소에 이 폴더의 파일을 같은 위치에 덮어 업로드한 뒤 Commit changes 하세요.
+public/teacher.html 및 public/styles.css를 기존 저장소의 같은 위치에 덮어쓴 후 Commit changes 하세요.
