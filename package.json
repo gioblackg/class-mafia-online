@@ -1,0 +1,14 @@
+{
+  "name": "class-mafia-online",
+  "version": "2.0.0",
+  "private": true,
+  "description": "우리 반 마피아 - 인터넷 배포형 역할 배정·일차별 투표 웹앱",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

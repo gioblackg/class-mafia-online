@@ -1,0 +1,5 @@
+QRCode JavaScript implementation
+Copyright (c) 2009 Kazuhiko Arase
+MIT License
+Source lineage: qrcode-terminal vendor/QRCode (modified Node-compatible port of Kazuhiko Arase QRCode implementation).
+The word “QR Code” is a registered trademark of DENSO WAVE INCORPORATED.

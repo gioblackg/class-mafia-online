@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: class-mafia-online
+    runtime: node
+    plan: free
+    buildCommand: echo "No build required"
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: APP_MODE
+        value: hosted
