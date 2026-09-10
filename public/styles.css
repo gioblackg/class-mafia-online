@@ -70,3 +70,5 @@ button,input,select{font:inherit}.wrap{width:min(1120px,calc(100% - 32px));margi
 .role-uniform-row{justify-content:center;text-align:center;min-height:64px}.role-uniform-row>div{width:100%}.role-mini-name{color:var(--text)}
 .role-secret-btn{background:#f2f3f6;color:#505665}.role-secret-text{font-size:14px;font-weight:850;background:#f8f8fb;color:#4f5565;min-height:48px;display:grid;place-items:center}
 .game-finished-box{text-align:center;padding:17px 14px;border:1px solid var(--line);background:#f8f8fb;border-radius:15px}.game-finished-box .small{margin-top:5px}
+
+.btn-complete{background:#f2f3f6!important;color:#555c68!important;border:1px solid #e2e5ea!important;cursor:default!important;box-shadow:none!important}

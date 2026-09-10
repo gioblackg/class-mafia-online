@@ -13,7 +13,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'rooms.json');
 const ROOM_TTL = 6 * 60 * 60 * 1000;
-const APP_VERSION = '2.7.0';
+const APP_VERSION = '2.8.0';
 const PID_FILE = path.join(__dirname, '.mafia-server.pid');
 const HOSTED = process.env.APP_MODE === 'hosted' || !!process.env.RENDER || !!process.env.RAILWAY_ENVIRONMENT || !!process.env.FLY_APP_NAME;
 const PERSIST_TO_DISK = !HOSTED && process.env.PERSIST_ROOMS !== '0';
