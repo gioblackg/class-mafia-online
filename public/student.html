@@ -38,10 +38,24 @@ async function ensureJoin(){
 }
 async function load(){
   if(loading||!token||nightHolding||nightActionBusy)return;loading=true;
-  try{state=await api('/api/rooms/'+code+'/me',{headers:{'x-player-token':token}});if(lastVoteStatus!==state.voteStatus){selectedVoteTarget=null;lastVoteStatus=state.voteStatus}if(state.player.hasVoted)selectedVoteTarget=null;render();qs('#app').hidden=false;qs('#fatal').hidden=true}
-  catch(e){if(e.message.includes('방을 찾을 수 없'))fatal(e.message);else{sessionStorage.removeItem(previewKey);localStorage.removeItem('mafia_player_'+code);token=null;fatal(e.message)}}finally{loading=false}
+  try{
+    state=await api('/api/rooms/'+code+'/me',{headers:{'x-player-token':token}});
+    if(lastVoteStatus!==state.voteStatus){selectedVoteTarget=null;lastVoteStatus=state.voteStatus}
+    if(state.player.hasVoted)selectedVoteTarget=null;
+    render();qs('#app').hidden=false;qs('#fatal').hidden=true;
+  }catch(e){
+    if(e.status===403){
+      sessionStorage.removeItem(previewKey);localStorage.removeItem('mafia_player_'+code);token=null;
+      fatal('이 기기의 접속 정보를 확인할 수 없습니다. 선생님께 알려 주세요.');
+    }else if(e.status===404||e.message.includes('방을 찾을 수 없')){
+      fatal(e.message);
+    }else{
+      reconnectNotice(e.message||'연결이 잠시 끊겼습니다. 자동으로 다시 연결합니다.');
+    }
+  }finally{loading=false}
 }
-function fatal(m){qs('#fatal').textContent=m;qs('#fatal').hidden=false;qs('#app').hidden=true}
+function fatal(m){qs('#fatal').textContent=m;qs('#fatal').className='notice error';qs('#fatal').hidden=false;qs('#app').hidden=true}
+function reconnectNotice(m){const el=qs('#fatal');el.textContent='📶 '+m;el.className='notice';el.hidden=false;if(state)qs('#app').hidden=false}
 function render(){
   qs('#roomCode').textContent=state.code;qs('#dayPill').textContent=state.day+'일차';qs('#myName').textContent=state.player.name;qs('#alivePill').textContent=state.player.alive?'생존':'탈락';qs('#alivePill').className='pill '+(state.player.alive?'live':'dead');
   renderRole();renderAction();

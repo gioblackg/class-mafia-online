@@ -13,7 +13,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'rooms.json');
 const ROOM_TTL = 6 * 60 * 60 * 1000;
-const APP_VERSION = '2.4.0';
+const APP_VERSION = '2.5.0';
 const PID_FILE = path.join(__dirname, '.mafia-server.pid');
 const HOSTED = process.env.APP_MODE === 'hosted' || !!process.env.RENDER || !!process.env.RAILWAY_ENVIRONMENT || !!process.env.FLY_APP_NAME;
 const PERSIST_TO_DISK = !HOSTED && process.env.PERSIST_ROOMS !== '0';
@@ -247,9 +247,10 @@ async function api(req,res,u){
   if(method==='POST'&&action==='assign'){
     if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'}); const n=r.players.length; if(n<3)return json(res,400,{error:'학생이 3명 이상 입장한 뒤 역할을 배정해 주세요.'});
     const mafia=Math.max(1,parseInt(b.mafia,10)||0),police=Math.max(0,parseInt(b.police,10)||0),doctor=Math.max(0,parseInt(b.doctor,10)||0); if(mafia+police+doctor>n)return json(res,400,{error:'설정한 특수 역할 수가 전체 학생 수보다 많습니다.'});
+    const startDay=Math.max(1,Math.min(99,parseInt(b.startDay,10)||1));
     const roles=[...Array(mafia).fill('mafia'),...Array(police).fill('police'),...Array(doctor).fill('doctor'),...Array(n-mafia-police-doctor).fill('citizen')], mix=shuffle(roles);
     r.players.forEach((p,i)=>{p.role=mix[i];p.alive=true;});
-    r.settings.mafiaKnowEachOther=b.mafiaKnowEachOther!==false;r.rolesAssigned=true;r.roleLocked=false;r.status='playing';r.day=1;r.voteStatus='idle';r.currentVotes={};r.voteHistory=[];r.nightAction=freshNight(1);r.nightHistory=[];saveRooms();return json(res,200,teacherState(r,false));
+    r.settings.mafiaKnowEachOther=b.mafiaKnowEachOther!==false;r.rolesAssigned=true;r.roleLocked=false;r.status='playing';r.day=startDay;r.voteStatus='idle';r.currentVotes={};r.voteHistory=[];r.nightAction=freshNight(startDay);r.nightHistory=[];saveRooms();return json(res,200,teacherState(r,false));
   }
   if(method==='POST'&&action==='role-lock'){
     if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'}); if(!r.rolesAssigned)return json(res,400,{error:'먼저 역할을 배정해 주세요.'}); r.roleLocked=b.locked!==false; saveRooms(); return json(res,200,{ok:true,roleLocked:r.roleLocked});

@@ -4,11 +4,19 @@ const api = async (url, opts={}) => {
   let res;
   try {
     res = await fetch(url,{...opts,cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})}});
-  } catch (e) {
-    throw new Error('서버와 연결이 끊겼습니다. 잠시 후 새로고침해 주세요.');
+  } catch (cause) {
+    const err = new Error('서버와 연결이 잠시 끊겼습니다. 자동으로 다시 연결합니다.');
+    err.network = true;
+    err.cause = cause;
+    throw err;
   }
   let data={}; try{ data=await res.json(); }catch{}
-  if(!res.ok) throw new Error(data.error||'요청을 처리하지 못했습니다.');
+  if(!res.ok){
+    const err = new Error(data.error||'요청을 처리하지 못했습니다.');
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
   return data;
 };
 const escapeHtml = (s='') => String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));

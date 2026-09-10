@@ -19,9 +19,9 @@
       <section class="card room-card-min">
         <div class="small muted">학생 입장</div>
         <div id="roomCode" class="code compact-code"></div>
-        <img id="qr" class="qr compact-qr" alt="학생 입장 QR">
+        <button id="openQrBtn" class="qr-open-button" type="button" title="QR 크게 보기"><img id="qr" class="qr compact-qr" alt="학생 입장 QR"><span class="qr-open-hint">🔍 크게 보기</span></button>
         <button id="copyUrlBtn" class="btn btn-light btn-block">🔗 접속 주소 복사</button>
-        <div class="mini-stats"><span>접속 <b id="statPlayers">0</b></span><span>생존 <b id="statAlive">0</b></span><span><b id="statDay">1</b>일차</span></div>
+        <div class="mini-stats"><span>입장 <b id="statPlayers">0</b></span><span>생존 <b id="statAlive">0</b></span><span><b id="statDay">1</b>일차</span></div>
       </section>
 
       <section id="roleSetup" class="card compact-card">
@@ -31,6 +31,7 @@
           <div class="field"><label>경찰</label><input id="policeN" class="input" type="number" min="0" value="1"></div>
           <div class="field"><label>의사</label><input id="doctorN" class="input" type="number" min="0" value="1"></div>
         </div>
+        <div class="start-day-row"><label for="startDay">시작 일차</label><div class="start-day-control"><input id="startDay" class="input" type="number" min="1" max="99" value="1"><span>일차</span></div></div>
         <label class="toggle small"><input id="mafiaKnow" type="checkbox" checked> 마피아끼리 서로 확인</label>
         <button id="assignBtn" class="btn btn-primary btn-block">🎲 역할 배정</button>
         <div id="roleMsg" hidden style="margin-top:10px"></div>
@@ -78,6 +79,17 @@
     </section>
   </main>
 </div>
+<div id="qrModal" class="qr-modal" hidden aria-modal="true" role="dialog" aria-label="학생 입장 QR 크게 보기">
+  <button id="closeQrBtn" class="qr-modal-close" type="button" aria-label="닫기">×</button>
+  <div class="qr-modal-panel">
+    <div class="qr-modal-head"><div class="small muted">우리 반 마피아 · 학생 입장</div><div id="qrModalCode" class="qr-modal-code"></div></div>
+    <img id="qrLarge" class="qr-large" alt="학생 입장 QR 크게 보기">
+    <div class="qr-roster">
+      <div class="qr-roster-summary">현재 접속 <b id="qrConnectedCount">0</b>명 <span id="qrJoinedCount" class="muted"></span></div>
+      <div id="qrStudentList" class="qr-student-list"></div>
+    </div>
+  </div>
+</div>
 <script src="/common.js"></script>
 <script>
 const code=new URLSearchParams(location.search).get('room');
@@ -93,10 +105,19 @@ async function load(force=false){
 }
 function fatal(m){qs('#fatal').textContent=m;qs('#fatal').hidden=false;qs('#app').hidden=true}
 function roleBadge(p){if(!state.rolesAssigned)return '';if(!showTeacherRoles)return '<span class="role role-hidden">•••</span>';return p.role&&roleMeta[p.role]?`<span class="role ${p.role}">${roleMeta[p.role].label}</span>`:'<span class="role role-hidden">?</span>'}
+function renderQrRoster(){
+  if(!state)return;
+  const real=state.players.filter(p=>!p.virtual),online=real.filter(p=>p.connected);
+  qs('#qrConnectedCount').textContent=online.length;
+  qs('#qrJoinedCount').textContent=real.length?`· 입장 ${real.length}명`:'';
+  qs('#qrStudentList').innerHTML=online.length?online.map(p=>`<span class="qr-student-name"><i></i>${escapeHtml(p.name)}</span>`).join(''):'<span class="small muted">아직 접속한 학생이 없습니다.</span>';
+}
+function openQrModal(){renderQrRoster();qs('#qrModal').hidden=false;document.body.classList.add('modal-open')}
+function closeQrModal(){qs('#qrModal').hidden=true;document.body.classList.remove('modal-open')}
 function render(){
-  qs('#roomCode').textContent=state.code;qs('#topRoom').textContent='방 '+state.code;qs('#qr').src='/api/rooms/'+state.code+'/qr?t='+Date.now();qs('#statPlayers').textContent=state.playerCount;qs('#statAlive').textContent=state.aliveCount;qs('#statDay').textContent=state.day;
+  const qrSrc='/api/rooms/'+state.code+'/qr';qs('#roomCode').textContent=state.code;qs('#topRoom').textContent='방 '+state.code;if(qs('#qr').getAttribute('src')!==qrSrc){qs('#qr').src=qrSrc;qs('#qrLarge').src=qrSrc}qs('#statPlayers').textContent=state.playerCount;qs('#statAlive').textContent=state.aliveCount;qs('#statDay').textContent=state.day;qs('#qrModalCode').textContent='방 '+state.code;renderQrRoster();
   qs('#roleSetup').hidden=state.rolesAssigned;
-  qs('#assignBtn').disabled=state.rolesAssigned;['mafiaN','policeN','doctorN','mafiaKnow'].forEach(id=>qs('#'+id).disabled=state.rolesAssigned);
+  qs('#assignBtn').disabled=state.rolesAssigned;['mafiaN','policeN','doctorN','mafiaKnow','startDay'].forEach(id=>qs('#'+id).disabled=state.rolesAssigned);
   qs('#teacherRoleBtn').disabled=!state.rolesAssigned;qs('#teacherRoleBtn').textContent=showTeacherRoles?'🙈 역할 가리기':'👁 역할 보기';
   qs('#studentLockBtn').disabled=!state.rolesAssigned;qs('#studentLockBtn').textContent=state.roleLocked?'🔓 역할 열기':'🔒 역할 잠금';
   qs('#studentSummary').textContent=`${state.playerCount}명 · 생존 ${state.aliveCount}명${state.rolesAssigned?(state.roleLocked?' · 학생 역할 잠김':' · 학생 역할 확인 중'):''}`;
@@ -154,7 +175,7 @@ async function addVirtual(){try{const n=Math.max(1,Math.min(12,+qs('#virtualN').
 async function clearVirtual(){if(!confirm('가상 학생을 모두 삭제할까요?'))return;try{const r=await api('/api/rooms/'+code+'/test/virtual/clear',h('POST'));flash(qs('#testMsg'),`가상 학생 ${r.removed}명을 삭제했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
 async function autoVirtualNight(){try{const r=await api('/api/rooms/'+code+'/test/virtual/night-auto',h('POST'));flash(qs('#testMsg'),`가상 학생 ${r.acted}명이 완료했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
 async function autoVirtualVote(){try{const r=await api('/api/rooms/'+code+'/test/virtual/vote-auto',h('POST'));flash(qs('#testMsg'),`가상 학생 ${r.voted}명이 투표했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
-async function assign(){try{await api('/api/rooms/'+code+'/assign',h('POST',{mafia:+qs('#mafiaN').value,police:+qs('#policeN').value,doctor:+qs('#doctorN').value,mafiaKnowEachOther:qs('#mafiaKnow').checked}));await load(true)}catch(e){flash(qs('#roleMsg'),e.message,'notice error')}}
+async function assign(){try{await api('/api/rooms/'+code+'/assign',h('POST',{mafia:+qs('#mafiaN').value,police:+qs('#policeN').value,doctor:+qs('#doctorN').value,startDay:+qs('#startDay').value||1,mafiaKnowEachOther:qs('#mafiaKnow').checked}));await load(true)}catch(e){flash(qs('#roleMsg'),e.message,'notice error')}}
 async function toggleTeacherRoles(){showTeacherRoles=!showTeacherRoles;await load(true)}
 async function toggleStudentLock(){try{await api('/api/rooms/'+code+'/role-lock',h('POST',{locked:!state.roleLocked}));await load(true)}catch(e){flash(qs('#roleMsg'),e.message,'notice error')}}
 async function kick(id){try{await api('/api/rooms/'+code+'/kick',h('POST',{playerId:id}));await load(true)}catch(e){alert(e.message)}}
@@ -165,6 +186,7 @@ async function startNight(){if(!confirm('밤 행동을 시작할까요? 학생 �
 async function resolveNight(){try{const r=await api('/api/rooms/'+code+'/night/resolve',h('POST'));if(r.result?.protected)flash(qs('#nightMsg'),'의사가 보호했습니다. 탈락자는 없습니다.','notice success');await load(true)}catch(e){flash(qs('#nightMsg'),e.message,'notice error')}}
 async function nextDay(){try{await api('/api/rooms/'+code+'/day/next',h('POST'));await load(true)}catch(e){flash(qs('#voteMsg'),e.message,'notice error')}}
 qs('#copyUrlBtn').onclick=async()=>{try{await navigator.clipboard.writeText(state.joinUrl);qs('#copyUrlBtn').textContent='✅ 복사됨';setTimeout(()=>qs('#copyUrlBtn').textContent='🔗 접속 주소 복사',1200)}catch{prompt('아래 주소를 복사하세요.',state.joinUrl)}};
+qs('#openQrBtn').onclick=openQrModal;qs('#closeQrBtn').onclick=closeQrModal;qs('#qrModal').addEventListener('click',e=>{if(e.target===qs('#qrModal'))closeQrModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!qs('#qrModal').hidden)closeQrModal()});
 qs('#assignBtn').onclick=assign;qs('#teacherRoleBtn').onclick=toggleTeacherRoles;qs('#studentLockBtn').onclick=toggleStudentLock;qs('#addVirtualBtn').onclick=addVirtual;qs('#clearVirtualBtn').onclick=clearVirtual;
 qs('#resetBtn').onclick=async()=>{if(!confirm('역할과 기록을 모두 초기화할까요?'))return;try{await api('/api/rooms/'+code+'/reset',h('POST'));showTeacherRoles=false;await load(true)}catch(e){alert(e.message)}};
 qs('#deleteBtn').onclick=async()=>{if(!confirm('방을 완전히 종료할까요?'))return;try{await api('/api/rooms/'+code+'/delete',h('POST'));localStorage.removeItem('mafia_admin_'+code);location.href='/'}catch(e){alert(e.message)}};
