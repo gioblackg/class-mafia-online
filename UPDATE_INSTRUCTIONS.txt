@@ -1,6 +1,6 @@
-우리 반 마피아 Online v2.5 업데이트
+우리 반 마피아 Online v2.6 업데이트
 
-1. class-mafia-online-v2.5-update.zip 압축을 풉니다.
+1. class-mafia-online-v2.6-update.zip 압축을 풉니다.
 2. GitHub의 기존 class-mafia-online 저장소에서 Add file → Upload files를 누릅니다.
 3. 압축을 푼 폴더 안의 파일과 public 폴더를 모두 올립니다.
 4. Commit changes를 누릅니다.
@@ -8,5 +8,7 @@
 
 이번 버전 핵심 변경
 - QR 크게 보기 + 하단 실시간 접속 학생 표시
-- 역할 배정 전 시작 일차 선택(1~99)
+- 역할 배정 전 총 진행 일수 선택(1~30일)
 - 학생 네트워크 일시 끊김 시 자동 재접속 및 기존 토큰 유지
+
+[v2.6] 시작 일차 기능을 총 진행 일수 기능으로 교체. 역할 카드 색/아이콘 차이를 제거해 모든 역할이 동일한 디자인으로 표시됩니다.

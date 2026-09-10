@@ -31,7 +31,7 @@
           <div class="field"><label>경찰</label><input id="policeN" class="input" type="number" min="0" value="1"></div>
           <div class="field"><label>의사</label><input id="doctorN" class="input" type="number" min="0" value="1"></div>
         </div>
-        <div class="start-day-row"><label for="startDay">시작 일차</label><div class="start-day-control"><input id="startDay" class="input" type="number" min="1" max="99" value="1"><span>일차</span></div></div>
+        <div class="total-days-row"><label for="totalDays">총 진행 일수</label><div class="total-days-control"><input id="totalDays" class="input" type="number" min="1" max="30" value="5"><span>일</span></div></div>
         <label class="toggle small"><input id="mafiaKnow" type="checkbox" checked> 마피아끼리 서로 확인</label>
         <button id="assignBtn" class="btn btn-primary btn-block">🎲 역할 배정</button>
         <div id="roleMsg" hidden style="margin-top:10px"></div>
@@ -104,7 +104,7 @@ async function load(force=false){
   catch(e){fatal(e.message)}finally{loading=false}
 }
 function fatal(m){qs('#fatal').textContent=m;qs('#fatal').hidden=false;qs('#app').hidden=true}
-function roleBadge(p){if(!state.rolesAssigned)return '';if(!showTeacherRoles)return '<span class="role role-hidden">•••</span>';return p.role&&roleMeta[p.role]?`<span class="role ${p.role}">${roleMeta[p.role].label}</span>`:'<span class="role role-hidden">?</span>'}
+function roleBadge(p){if(!state.rolesAssigned)return '';if(!showTeacherRoles)return '<span class="role role-hidden">•••</span>';return p.role&&roleMeta[p.role]?`<span class="role role-neutral">${roleMeta[p.role].label}</span>`:'<span class="role role-hidden">?</span>'}
 function renderQrRoster(){
   if(!state)return;
   const real=state.players.filter(p=>!p.virtual),online=real.filter(p=>p.connected);
@@ -115,9 +115,9 @@ function renderQrRoster(){
 function openQrModal(){renderQrRoster();qs('#qrModal').hidden=false;document.body.classList.add('modal-open')}
 function closeQrModal(){qs('#qrModal').hidden=true;document.body.classList.remove('modal-open')}
 function render(){
-  const qrSrc='/api/rooms/'+state.code+'/qr';qs('#roomCode').textContent=state.code;qs('#topRoom').textContent='방 '+state.code;if(qs('#qr').getAttribute('src')!==qrSrc){qs('#qr').src=qrSrc;qs('#qrLarge').src=qrSrc}qs('#statPlayers').textContent=state.playerCount;qs('#statAlive').textContent=state.aliveCount;qs('#statDay').textContent=state.day;qs('#qrModalCode').textContent='방 '+state.code;renderQrRoster();
+  const qrSrc='/api/rooms/'+state.code+'/qr';qs('#roomCode').textContent=state.code;qs('#topRoom').textContent='방 '+state.code;if(qs('#qr').getAttribute('src')!==qrSrc){qs('#qr').src=qrSrc;qs('#qrLarge').src=qrSrc}qs('#statPlayers').textContent=state.playerCount;qs('#statAlive').textContent=state.aliveCount;qs('#statDay').textContent=state.totalDays?`${state.day}/${state.totalDays}`:state.day;qs('#qrModalCode').textContent='방 '+state.code;renderQrRoster();
   qs('#roleSetup').hidden=state.rolesAssigned;
-  qs('#assignBtn').disabled=state.rolesAssigned;['mafiaN','policeN','doctorN','mafiaKnow','startDay'].forEach(id=>qs('#'+id).disabled=state.rolesAssigned);
+  qs('#assignBtn').disabled=state.rolesAssigned;['mafiaN','policeN','doctorN','mafiaKnow','totalDays'].forEach(id=>qs('#'+id).disabled=state.rolesAssigned);
   qs('#teacherRoleBtn').disabled=!state.rolesAssigned;qs('#teacherRoleBtn').textContent=showTeacherRoles?'🙈 역할 가리기':'👁 역할 보기';
   qs('#studentLockBtn').disabled=!state.rolesAssigned;qs('#studentLockBtn').textContent=state.roleLocked?'🔓 역할 열기':'🔒 역할 잠금';
   qs('#studentSummary').textContent=`${state.playerCount}명 · 생존 ${state.aliveCount}명${state.rolesAssigned?(state.roleLocked?' · 학생 역할 잠김':' · 학생 역할 확인 중'):''}`;
@@ -140,7 +140,9 @@ function renderFlow(){
     const r=n.result||{},prs=Array.isArray(r.policeResults)?r.policeResults:[];
     const resultText=r.protected?'🩺 의사가 보호했습니다. 탈락자 없음':r.eliminatedName?`🌙 ${escapeHtml(r.eliminatedName)} 탈락`:'🌙 탈락자 없음';
     const police=prs.length?prs.map(x=>`<div class="result-row"><span>🔎 경찰 조사</span><b>${escapeHtml(x.targetName||'대상 없음')} → ${x.isMafia?'마피아':'마피아 아님'}</b></div>`).join(''):`<div class="result-row"><span>🔎 경찰 조사</span><b>${state.nightCapabilities?.policeAlive?'결과 없음':'생존 경찰 없음'}</b></div>`;
-    setFlow('밤 결과','완료',`<div class="result-hero">${resultText}</div><div class="result-list"><div class="result-row"><span>🔪 마피아</span><b>${escapeHtml(r.mafiaTargetName||'없음')}</b></div><div class="result-row"><span>🩺 의사</span><b>${escapeHtml(r.doctorTargetName||'없음')}</b></div>${police}</div><button class="btn btn-secondary btn-block" onclick="nextDay()">➡️ ${state.day+1}일차 시작</button>`,'live');return;
+    const finalDay=state.day>=state.totalDays||state.status==='finished';
+    const footer=finalDay?`<div class="game-finished-box"><b>🏁 ${state.totalDays}일간의 게임이 끝났습니다.</b><div class="small muted">필요하면 역할 보기로 최종 역할을 확인하세요.</div></div>`:`<button class="btn btn-secondary btn-block" onclick="nextDay()">➡️ ${state.day+1}일차 시작</button>`;
+    setFlow('밤 결과',finalDay?'게임 종료':'완료',`<div class="result-hero">${resultText}</div><div class="result-list"><div class="result-row"><span>🔪 마피아</span><b>${escapeHtml(r.mafiaTargetName||'없음')}</b></div><div class="result-row"><span>🩺 의사</span><b>${escapeHtml(r.doctorTargetName||'없음')}</b></div>${police}</div>${footer}`,'live');return;
   }
   if(state.voteStatus==='open'){
     const p=state.voteProgress||{voted:0,eligible:0};
@@ -175,7 +177,7 @@ async function addVirtual(){try{const n=Math.max(1,Math.min(12,+qs('#virtualN').
 async function clearVirtual(){if(!confirm('가상 학생을 모두 삭제할까요?'))return;try{const r=await api('/api/rooms/'+code+'/test/virtual/clear',h('POST'));flash(qs('#testMsg'),`가상 학생 ${r.removed}명을 삭제했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
 async function autoVirtualNight(){try{const r=await api('/api/rooms/'+code+'/test/virtual/night-auto',h('POST'));flash(qs('#testMsg'),`가상 학생 ${r.acted}명이 완료했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
 async function autoVirtualVote(){try{const r=await api('/api/rooms/'+code+'/test/virtual/vote-auto',h('POST'));flash(qs('#testMsg'),`가상 학생 ${r.voted}명이 투표했습니다.`,'notice success');await load(true)}catch(e){flash(qs('#testMsg'),e.message,'notice error')}}
-async function assign(){try{await api('/api/rooms/'+code+'/assign',h('POST',{mafia:+qs('#mafiaN').value,police:+qs('#policeN').value,doctor:+qs('#doctorN').value,startDay:+qs('#startDay').value||1,mafiaKnowEachOther:qs('#mafiaKnow').checked}));await load(true)}catch(e){flash(qs('#roleMsg'),e.message,'notice error')}}
+async function assign(){try{await api('/api/rooms/'+code+'/assign',h('POST',{mafia:+qs('#mafiaN').value,police:+qs('#policeN').value,doctor:+qs('#doctorN').value,totalDays:+qs('#totalDays').value||5,mafiaKnowEachOther:qs('#mafiaKnow').checked}));await load(true)}catch(e){flash(qs('#roleMsg'),e.message,'notice error')}}
 async function toggleTeacherRoles(){showTeacherRoles=!showTeacherRoles;await load(true)}
 async function toggleStudentLock(){try{await api('/api/rooms/'+code+'/role-lock',h('POST',{locked:!state.roleLocked}));await load(true)}catch(e){flash(qs('#roleMsg'),e.message,'notice error')}}
 async function kick(id){try{await api('/api/rooms/'+code+'/kick',h('POST',{playerId:id}));await load(true)}catch(e){alert(e.message)}}

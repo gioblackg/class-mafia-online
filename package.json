@@ -1,8 +1,8 @@
 {
   "name": "class-mafia-online",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "private": true,
-  "description": "우리 반 마피아 - 인터넷 배포형 역할 배정·일차별 투표·역할 잠금·전원 공통 밤 행동·가상 학생 테스트·간소화 UI·QR 확대·시작 일차·자동 재접속 웹앱",
+  "description": "우리 반 마피아 - 인터넷 배포형 역할 배정·일차별 투표·역할 잠금·전원 공통 밤 행동·가상 학생 테스트·간소화 UI·QR 확대·총 진행 일수·자동 재접속 웹앱",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

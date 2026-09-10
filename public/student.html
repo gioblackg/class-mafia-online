@@ -57,20 +57,23 @@ async function load(){
 function fatal(m){qs('#fatal').textContent=m;qs('#fatal').className='notice error';qs('#fatal').hidden=false;qs('#app').hidden=true}
 function reconnectNotice(m){const el=qs('#fatal');el.textContent='📶 '+m;el.className='notice';el.hidden=false;if(state)qs('#app').hidden=false}
 function render(){
-  qs('#roomCode').textContent=state.code;qs('#dayPill').textContent=state.day+'일차';qs('#myName').textContent=state.player.name;qs('#alivePill').textContent=state.player.alive?'생존':'탈락';qs('#alivePill').className='pill '+(state.player.alive?'live':'dead');
+  qs('#roomCode').textContent=state.code;qs('#dayPill').textContent=(state.totalDays?`${state.day}/${state.totalDays}`:state.day)+'일차';qs('#myName').textContent=state.player.name;qs('#alivePill').textContent=state.player.alive?'생존':'탈락';qs('#alivePill').className='pill '+(state.player.alive?'live':'dead');
   renderRole();renderAction();
 }
 function renderRole(){
   const card=qs('#roleCard'),el=qs('#roleContent');
   if(!state.rolesAssigned||state.roleLocked){card.hidden=true;return}
-  card.hidden=false;const r=state.player.role,m=roleMeta[r];card.className='card student-role-mini '+r;
-  el.innerHTML=`<div class="role-mini-row"><span class="role-mini-emoji">${m.emoji}</span><div><div class="small muted">나의 역할</div><div class="role-mini-name">${m.label}</div></div></div>${r==='mafia'&&state.player.fellowMafia.length?`<div class="notice error compact-notice"><b>같은 마피아</b> · ${state.player.fellowMafia.map(escapeHtml).join(', ')}</div>`:''}`;
+  card.hidden=false;const r=state.player.role,m=roleMeta[r];card.className='card student-role-mini role-uniform';
+  const secretText=r==='mafia'&&state.player.fellowMafia.length?`같은 마피아 · ${state.player.fellowMafia.map(escapeHtml).join(', ')}`:'추가 정보가 없습니다.';
+  el.innerHTML=`<div class="role-mini-row role-uniform-row"><div><div class="small muted">나의 역할</div><div class="role-mini-name">${m.label}</div></div></div><button id="roleSecretBtn" class="private-result-btn role-secret-btn" type="button">🔐 비밀 정보 확인</button><div id="roleSecretText" class="private-result-text role-secret-text blurred">${secretText}</div>`;
+  const secretBtn=qs('#roleSecretBtn'),secretEl=qs('#roleSecretText');const revealSecret=()=>secretEl.classList.remove('blurred'),hideSecret=()=>secretEl.classList.add('blurred');secretBtn.addEventListener('pointerdown',revealSecret);secretBtn.addEventListener('pointerup',hideSecret);secretBtn.addEventListener('pointerleave',hideSecret);secretBtn.addEventListener('pointercancel',hideSecret);secretBtn.addEventListener('contextmenu',e=>e.preventDefault());
 }
 function renderAction(){
   const el=qs('#actionContent'),night=state.night||{status:'idle'};
   if(!state.rolesAssigned){el.innerHTML='<div class="action-center"><div class="action-icon">🤫</div><h2>잠시 기다려 주세요</h2><p class="muted">선생님이 역할을 배정하고 있어요.</p></div>';return}
   if(night.status==='open'){renderNightAction(el,night);return}
   if(night.status==='resolved'&&night.privateResult?.kind==='police'){renderPoliceResult(el,night.privateResult);return}
+  if(state.status==='finished'){el.innerHTML=`<div class="action-center"><div class="action-icon">🏁</div><h2>게임 종료</h2><p class="muted">${state.totalDays}일간의 게임이 끝났습니다.</p></div>`;return}
   if(!state.player.alive){el.innerHTML='<div class="action-center"><div class="action-icon">👀</div><h2>관전 중</h2><p class="muted">조용히 게임을 지켜봐 주세요.</p></div>';return}
   if(state.voteStatus==='open'){renderVote(el);return}
   if(state.voteStatus==='ended'){el.innerHTML='<div class="action-center"><div class="action-icon">✅</div><h2>투표 완료</h2><p class="muted">선생님의 안내를 기다려 주세요.</p></div>';return}

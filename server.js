@@ -13,7 +13,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'rooms.json');
 const ROOM_TTL = 6 * 60 * 60 * 1000;
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 const PID_FILE = path.join(__dirname, '.mafia-server.pid');
 const HOSTED = process.env.APP_MODE === 'hosted' || !!process.env.RENDER || !!process.env.RAILWAY_ENVIRONMENT || !!process.env.FLY_APP_NAME;
 const PERSIST_TO_DISK = !HOSTED && process.env.PERSIST_ROOMS !== '0';
@@ -47,8 +47,9 @@ function normalizeRoom(r){
     r.nightAction = freshNight(r.day || 1);
   }
   if (!r.nightAction.actions || typeof r.nightAction.actions !== 'object') r.nightAction.actions = {};
-  if (!r.settings) r.settings = {mafiaKnowEachOther:true};
+  if (!r.settings) r.settings = {mafiaKnowEachOther:true,totalDays:5};
   if (typeof r.settings.mafiaKnowEachOther !== 'boolean') r.settings.mafiaKnowEachOther = true;
+  if (!Number.isInteger(r.settings.totalDays) || r.settings.totalDays < 1) r.settings.totalDays = Math.max(5, r.day || 1);
   if (!r.currentVotes) r.currentVotes = {};
   if (!Array.isArray(r.voteHistory)) r.voteHistory = [];
   return r;
@@ -57,7 +58,7 @@ function cleanExpired(){ let changed=false; for(const [c,r] of Object.entries(ro
 setInterval(cleanExpired, 10*60*1000).unref();
 function getRoom(code){ cleanExpired(); const r=rooms[String(code||'')] || null; return r ? normalizeRoom(r) : null; }
 function connected(p){ return now() - (p.lastSeenAt || 0) < 6000; }
-function publicRoom(r){ return {code:r.code,expiresAt:r.expiresAt,day:r.day,status:r.status,voteStatus:r.voteStatus,playerCount:r.players.length,aliveCount:r.players.filter(p=>p.alive).length,rolesAssigned:r.rolesAssigned,roleLocked:!!r.roleLocked,nightStatus:r.nightAction?.status||'idle'}; }
+function publicRoom(r){ return {code:r.code,expiresAt:r.expiresAt,day:r.day,totalDays:r.settings?.totalDays||5,status:r.status,voteStatus:r.voteStatus,playerCount:r.players.length,aliveCount:r.players.filter(p=>p.alive).length,rolesAssigned:r.rolesAssigned,roleLocked:!!r.roleLocked,nightStatus:r.nightAction?.status||'idle'}; }
 function roleLabel(role){ return ({mafia:'마피아',police:'경찰',doctor:'의사',citizen:'시민'})[role]||'미배정'; }
 function tally(r){ const c={}; for(const t of Object.values(r.currentVotes||{})) c[t]=(c[t]||0)+1; return r.players.map(p=>({playerId:p.id,name:p.name,votes:c[p.id]||0,alive:p.alive})).filter(x=>x.votes>0).sort((a,b)=>b.votes-a.votes||a.name.localeCompare(b.name,'ko')); }
 function playerName(r,id){ return r.players.find(p=>p.id===id)?.name || null; }
@@ -182,7 +183,7 @@ async function api(req,res,u){
   if(method==='GET'&&u.pathname==='/api/health') return json(res,200,{ok:true,app:'class-mafia-online',version:APP_VERSION,mode:HOSTED?'hosted':'local',port:PORT});
   if(method==='POST'&&u.pathname==='/api/rooms'){
     const code=uniqueCode();
-    const r={code,adminToken:rand(24),createdAt:now(),expiresAt:now()+ROOM_TTL,day:1,status:'waiting',voteStatus:'idle',rolesAssigned:false,roleLocked:false,settings:{mafiaKnowEachOther:true},players:[],currentVotes:{},voteHistory:[],nightAction:freshNight(1),nightHistory:[]};
+    const r={code,adminToken:rand(24),createdAt:now(),expiresAt:now()+ROOM_TTL,day:1,status:'waiting',voteStatus:'idle',rolesAssigned:false,roleLocked:false,settings:{mafiaKnowEachOther:true,totalDays:5},players:[],currentVotes:{},voteHistory:[],nightAction:freshNight(1),nightHistory:[]};
     rooms[code]=r; saveRooms(); return json(res,200,{code,adminToken:r.adminToken,expiresAt:r.expiresAt});
   }
   if(parts[0]!=='api'||parts[1]!=='rooms'||!parts[2]) return json(res,404,{error:'API를 찾을 수 없습니다.'});
@@ -247,16 +248,16 @@ async function api(req,res,u){
   if(method==='POST'&&action==='assign'){
     if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'}); const n=r.players.length; if(n<3)return json(res,400,{error:'학생이 3명 이상 입장한 뒤 역할을 배정해 주세요.'});
     const mafia=Math.max(1,parseInt(b.mafia,10)||0),police=Math.max(0,parseInt(b.police,10)||0),doctor=Math.max(0,parseInt(b.doctor,10)||0); if(mafia+police+doctor>n)return json(res,400,{error:'설정한 특수 역할 수가 전체 학생 수보다 많습니다.'});
-    const startDay=Math.max(1,Math.min(99,parseInt(b.startDay,10)||1));
+    const totalDays=Math.max(1,Math.min(30,parseInt(b.totalDays,10)||5));
     const roles=[...Array(mafia).fill('mafia'),...Array(police).fill('police'),...Array(doctor).fill('doctor'),...Array(n-mafia-police-doctor).fill('citizen')], mix=shuffle(roles);
     r.players.forEach((p,i)=>{p.role=mix[i];p.alive=true;});
-    r.settings.mafiaKnowEachOther=b.mafiaKnowEachOther!==false;r.rolesAssigned=true;r.roleLocked=false;r.status='playing';r.day=startDay;r.voteStatus='idle';r.currentVotes={};r.voteHistory=[];r.nightAction=freshNight(startDay);r.nightHistory=[];saveRooms();return json(res,200,teacherState(r,false));
+    r.settings.mafiaKnowEachOther=b.mafiaKnowEachOther!==false;r.settings.totalDays=totalDays;r.rolesAssigned=true;r.roleLocked=false;r.status='playing';r.day=1;r.voteStatus='idle';r.currentVotes={};r.voteHistory=[];r.nightAction=freshNight(1);r.nightHistory=[];saveRooms();return json(res,200,teacherState(r,false));
   }
   if(method==='POST'&&action==='role-lock'){
     if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'}); if(!r.rolesAssigned)return json(res,400,{error:'먼저 역할을 배정해 주세요.'}); r.roleLocked=b.locked!==false; saveRooms(); return json(res,200,{ok:true,roleLocked:r.roleLocked});
   }
   if(method==='POST'&&action==='vote/start'){
-    if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'}); if(!r.rolesAssigned)return json(res,400,{error:'먼저 역할을 배정해 주세요.'}); if(r.nightAction?.status==='open')return json(res,400,{error:'밤 행동을 먼저 종료해 주세요.'}); if(r.voteStatus==='open')return json(res,400,{error:'이미 투표가 진행 중입니다.'}); r.currentVotes={};r.voteStatus='open';saveRooms();return json(res,200,teacherState(r,false));
+    if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'}); if(!r.rolesAssigned)return json(res,400,{error:'먼저 역할을 배정해 주세요.'}); if(r.status==='finished')return json(res,400,{error:'설정한 전체 일차가 끝났습니다.'}); if(r.nightAction?.status==='open')return json(res,400,{error:'밤 행동을 먼저 종료해 주세요.'}); if(r.voteStatus==='open')return json(res,400,{error:'이미 투표가 진행 중입니다.'}); r.currentVotes={};r.voteStatus='open';saveRooms();return json(res,200,teacherState(r,false));
   }
   if(method==='POST'&&action==='vote'){
     const tok=playerAuth(req,r,b),p=r.players.find(x=>x.token===tok); if(!p)return json(res,403,{error:'학생 인증 정보가 없습니다.'}); p.lastSeenAt=now(); if(r.voteStatus!=='open')return json(res,400,{error:'현재 투표 시간이 아닙니다.'}); if(!p.alive)return json(res,400,{error:'탈락한 학생은 투표할 수 없습니다.'}); if(r.currentVotes[p.id])return json(res,400,{error:'이미 투표했습니다.'}); const t=r.players.find(x=>x.id===String(b.targetId||'')&&x.alive); if(!t)return json(res,400,{error:'투표할 수 없는 대상입니다.'}); if(t.id===p.id)return json(res,400,{error:'자기 자신에게는 투표할 수 없습니다.'}); r.currentVotes[p.id]=t.id;saveRooms();return json(res,200,studentState(r,p));
@@ -270,6 +271,7 @@ async function api(req,res,u){
   if(method==='POST'&&action==='night/start'){
     if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'});
     if(!r.rolesAssigned)return json(res,400,{error:'먼저 역할을 배정해 주세요.'});
+    if(r.status==='finished')return json(res,400,{error:'설정한 전체 일차가 끝났습니다.'});
     if(r.voteStatus==='open')return json(res,400,{error:'진행 중인 낮 투표를 먼저 종료해 주세요.'});
     normalizeRoom(r);
     if(r.nightAction.status==='open')return json(res,400,{error:'이미 밤 행동이 진행 중입니다.'});
@@ -316,10 +318,13 @@ async function api(req,res,u){
     let eliminated=null;
     if(target&&!protectedSuccess){ target.alive=false; eliminated=target; }
     const result={day:r.day,resolvedAt:now(),mafiaTargetId:target?.id||null,mafiaTargetName:target?.name||null,doctorTargetId:doctorTarget?.id||null,doctorTargetName:doctorTarget?.name||null,policeResults,protected:protectedSuccess,eliminatedPlayerId:eliminated?.id||null,eliminatedName:eliminated?.name||null};
-    r.nightAction.status='resolved';r.nightAction.resolved=true;r.nightAction.result=result;r.nightHistory.push(result);saveRooms();return json(res,200,{ok:true,result});
+    r.nightAction.status='resolved';r.nightAction.resolved=true;r.nightAction.result=result;r.nightHistory.push(result);
+    if(r.day>=r.settings.totalDays) r.status='finished';
+    saveRooms();return json(res,200,{ok:true,result,finished:r.status==='finished'});
   }
   if(method==='POST'&&action==='day/next'){
     if(!isTeacher)return json(res,403,{error:'교사 권한이 없습니다.'});
+    if(r.status==='finished'||r.day>=r.settings.totalDays)return json(res,400,{error:'설정한 전체 일차가 끝났습니다.'});
     if(r.voteStatus==='open')return json(res,400,{error:'진행 중인 투표를 먼저 종료해 주세요.'});
     if(r.nightAction?.status==='open')return json(res,400,{error:'진행 중인 밤 행동을 먼저 종료해 주세요.'});
     if(r.voteStatus==='ended'&&!r.voteHistory.some(h=>h.day===r.day))r.voteHistory.push({day:r.day,endedAt:now(),eliminatedPlayerId:null,eliminatedName:'탈락자 없음',tally:tally(r),votes:{...r.currentVotes}});
