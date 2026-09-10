@@ -7,25 +7,17 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<div class="student-shell">
-  <div class="student-top">
-    <div class="brand" style="justify-content:center"><div class="brand-badge">M</div>우리 반 마피아</div>
-    <p class="muted small">내 역할은 나만 보기</p>
+<div class="student-shell student-min-shell">
+  <div class="student-min-head">
+    <div class="brand"><div class="brand-badge">M</div>우리 반 마피아</div>
+    <span id="dayPill" class="pill"></span>
   </div>
   <div id="fatal" class="notice error" hidden></div>
   <main id="app" class="stack" hidden>
-    <section class="card">
-      <div class="section-title">
-        <div><div class="small muted">방 코드</div><h2 id="roomCode" style="margin-top:2px"></h2></div>
-        <span id="dayPill" class="pill"></span>
-      </div>
-      <div id="identity" class="small muted"></div>
-    </section>
-    <section id="roleCard" class="card big-role"><div id="roleContent"></div></section>
-    <section id="nightCard" class="card night-student-card" hidden><div id="nightContent"></div><div id="nightMsg" hidden style="margin-top:10px"></div></section>
-    <section id="voteCard" class="card"><div id="voteContent"></div><div id="voteMsg" hidden style="margin-top:10px"></div></section>
+    <div class="student-identity"><b id="myName"></b><span id="alivePill" class="pill live"></span><span class="small muted">방 <span id="roomCode"></span></span></div>
+    <section id="roleCard" class="card student-role-mini" hidden><div id="roleContent"></div></section>
+    <section id="actionCard" class="card student-action-card"><div id="actionContent"></div><div id="actionMsg" hidden style="margin-top:10px"></div></section>
   </main>
-  <div class="footer">친구의 화면을 보지 않고 즐겁게 참여해 주세요 🙂</div>
 </div>
 <script src="/common.js"></script>
 <script>
@@ -37,134 +29,59 @@ if(previewToken){sessionStorage.setItem(previewKey,previewToken);params.delete('
 let token=sessionStorage.getItem(previewKey)||localStorage.getItem('mafia_player_'+code);
 let state=null,loading=false,selectedVoteTarget=null,lastVoteStatus=null;
 let nightHoldTimer=null,nightHolding=false,nightActionBusy=false;
-
 async function ensureJoin(){
   if(token)return load();
   try{await api('/api/rooms/'+code+'/public')}catch(e){return fatal(e.message)}
   const name=prompt('번호 또는 별명을 입력해 주세요.\n예: 12번 / 반짝이');
   if(!name){location.href='/';return}
-  try{
-    const r=await api('/api/rooms/'+code+'/join',{method:'POST',body:JSON.stringify({name})});
-    token=r.playerToken;localStorage.setItem('mafia_player_'+code,token);load();
-  }catch(e){fatal(e.message)}
+  try{const r=await api('/api/rooms/'+code+'/join',{method:'POST',body:JSON.stringify({name})});token=r.playerToken;localStorage.setItem('mafia_player_'+code,token);load()}catch(e){fatal(e.message)}
 }
 async function load(){
-  if(loading||!token||nightHolding||nightActionBusy)return;
-  loading=true;
-  try{
-    state=await api('/api/rooms/'+code+'/me',{headers:{'x-player-token':token}});
-    if(lastVoteStatus!==state.voteStatus){selectedVoteTarget=null;lastVoteStatus=state.voteStatus}
-    if(state.player.hasVoted)selectedVoteTarget=null;
-    render();qs('#app').hidden=false;qs('#fatal').hidden=true;
-  }catch(e){
-    if(e.message.includes('방을 찾을 수 없'))fatal(e.message);
-    else{sessionStorage.removeItem(previewKey);localStorage.removeItem('mafia_player_'+code);token=null;fatal(e.message)}
-  }finally{loading=false}
+  if(loading||!token||nightHolding||nightActionBusy)return;loading=true;
+  try{state=await api('/api/rooms/'+code+'/me',{headers:{'x-player-token':token}});if(lastVoteStatus!==state.voteStatus){selectedVoteTarget=null;lastVoteStatus=state.voteStatus}if(state.player.hasVoted)selectedVoteTarget=null;render();qs('#app').hidden=false;qs('#fatal').hidden=true}
+  catch(e){if(e.message.includes('방을 찾을 수 없'))fatal(e.message);else{sessionStorage.removeItem(previewKey);localStorage.removeItem('mafia_player_'+code);token=null;fatal(e.message)}}finally{loading=false}
 }
 function fatal(m){qs('#fatal').textContent=m;qs('#fatal').hidden=false;qs('#app').hidden=true}
 function render(){
-  qs('#roomCode').textContent=state.code;
-  qs('#dayPill').textContent=state.day+'일차';
-  qs('#identity').innerHTML=`나는 <b>${escapeHtml(state.player.name)}</b>${state.player.virtual?' <span class="pill">🧪 테스트 학생</span>':''} · ${state.player.alive?'생존 중':'탈락'}`;
-  renderRole();renderNight();renderVote();
+  qs('#roomCode').textContent=state.code;qs('#dayPill').textContent=state.day+'일차';qs('#myName').textContent=state.player.name;qs('#alivePill').textContent=state.player.alive?'생존':'탈락';qs('#alivePill').className='pill '+(state.player.alive?'live':'dead');
+  renderRole();renderAction();
 }
 function renderRole(){
-  const rc=qs('#roleCard');
-  if(!state.rolesAssigned){
-    rc.className='card big-role';
-    qs('#roleContent').innerHTML='<div class="role-emoji">🤫</div><h2 style="font-size:28px">역할 배정을 기다려 주세요</h2><p class="muted">모두 입장하면 선생님이 역할을 배정합니다.</p>';
-  }else if(state.roleLocked){
-    rc.className='card big-role role-locked';
-    qs('#roleContent').innerHTML='<div class="role-emoji">🔒</div><h2 style="font-size:28px">역할이 잠겼어요</h2><p class="muted">역할 확인 시간이 끝났습니다. 선생님이 다시 열어 주면 확인할 수 있어요.</p>';
-  }else{
-    const r=state.player.role,m=roleMeta[r];
-    rc.className='card big-role '+r;
-    qs('#roleContent').innerHTML=`<div class="small muted">나의 역할</div><div class="role-emoji">${m.emoji}</div><h2>${m.label}</h2><p class="muted">${m.desc}</p>${r==='mafia'&&state.player.fellowMafia.length?`<div class="notice error"><b>같은 마피아</b><br>${state.player.fellowMafia.map(escapeHtml).join(', ')}</div>`:''}`;
-  }
+  const card=qs('#roleCard'),el=qs('#roleContent');
+  if(!state.rolesAssigned||state.roleLocked){card.hidden=true;return}
+  card.hidden=false;const r=state.player.role,m=roleMeta[r];card.className='card student-role-mini '+r;
+  el.innerHTML=`<div class="role-mini-row"><span class="role-mini-emoji">${m.emoji}</span><div><div class="small muted">나의 역할</div><div class="role-mini-name">${m.label}</div></div></div>${r==='mafia'&&state.player.fellowMafia.length?`<div class="notice error compact-notice"><b>같은 마피아</b> · ${state.player.fellowMafia.map(escapeHtml).join(', ')}</div>`:''}`;
 }
-function renderNight(){
-  const card=qs('#nightCard'),el=qs('#nightContent'),night=state.night||{status:'idle'};
-  if(!state.rolesAssigned||night.status==='idle') {card.hidden=true;return}
-  card.hidden=false;
-  if(night.status==='resolved'){
-    const hasPrivate=!!night.privateResult;
-    el.innerHTML=`<div class="night-moon">🌙</div><div class="status-banner status-done">✅ 밤 행동이 끝났습니다.</div><p class="muted" style="text-align:center">선생님의 안내를 기다려 주세요.</p>${hasPrivate?'<div class="private-result-wrap"><div class="small muted">개인 결과가 있다면 아래 영역을 누르고 있는 동안만 볼 수 있어요.</div><button id="privateResultBtn" class="private-result-btn" type="button">🔐 개인 결과 확인</button><div id="privateResultText" class="private-result-text blurred"></div></div>':''}`;
-    if(hasPrivate){
-      const pr=night.privateResult;
-      const text=pr.kind==='police'?`<div class="small muted" style="margin-bottom:6px">🔎 경찰 조사 결과</div><b>${escapeHtml(pr.targetName||'선택한 학생')}</b>은(는) <b>${pr.isMafia?'마피아입니다.':'마피아가 아닙니다.'}</b>`:'추가로 확인할 정보가 없습니다.';
-      qs('#privateResultText').innerHTML=text;
-      const btn=qs('#privateResultBtn');
-      const reveal=()=>qs('#privateResultText')?.classList.remove('blurred');
-      const hide=()=>qs('#privateResultText')?.classList.add('blurred');
-      btn.addEventListener('pointerdown',reveal);btn.addEventListener('pointerup',hide);btn.addEventListener('pointerleave',hide);btn.addEventListener('pointercancel',hide);btn.addEventListener('contextmenu',e=>e.preventDefault());
-    }
-    return;
-  }
-  if(!state.player.alive){
-    el.innerHTML='<div class="night-moon">🌙</div><h2>밤이 진행 중이에요</h2><p class="muted">탈락한 학생은 조용히 기다려 주세요.</p>';
-    return;
-  }
-  if(night.hasActed){
-    el.innerHTML='<div class="night-moon">🌙</div><div class="status-banner status-done">✅ 밤 행동 완료</div><p class="muted" style="text-align:center">화면을 그대로 두고 선생님의 안내를 기다려 주세요.</p>';
-    return;
-  }
-  el.innerHTML=`<div class="night-moon">🌙</div><h2 style="text-align:center">${state.day}일차 밤 행동</h2><p class="night-generic-help">한 명을 선택하세요.<br><b>선택할 친구를 약 1초 동안 꾹 누르면 완료됩니다.</b></p><div class="night-candidate-grid">${night.candidates.map(c=>`<button type="button" class="night-candidate-btn" data-id="${c.id}"><span>${escapeHtml(c.name)}</span><span class="hold-hint">꾹 누르기</span></button>`).join('')}</div><p class="small muted" style="text-align:center;margin-bottom:0">친구마다 버튼 위치가 다르게 표시됩니다.</p>`;
-  qsa('.night-candidate-btn',el).forEach(btn=>{
-    btn.addEventListener('pointerdown',e=>startNightHold(e,btn));
-    btn.addEventListener('pointerup',cancelNightHold);
-    btn.addEventListener('pointercancel',cancelNightHold);
-    btn.addEventListener('pointerleave',cancelNightHold);
-    btn.addEventListener('contextmenu',e=>e.preventDefault());
-  });
+function renderAction(){
+  const el=qs('#actionContent'),night=state.night||{status:'idle'};
+  if(!state.rolesAssigned){el.innerHTML='<div class="action-center"><div class="action-icon">🤫</div><h2>잠시 기다려 주세요</h2><p class="muted">선생님이 역할을 배정하고 있어요.</p></div>';return}
+  if(night.status==='open'){renderNightAction(el,night);return}
+  if(night.status==='resolved'&&night.privateResult?.kind==='police'){renderPoliceResult(el,night.privateResult);return}
+  if(!state.player.alive){el.innerHTML='<div class="action-center"><div class="action-icon">👀</div><h2>관전 중</h2><p class="muted">조용히 게임을 지켜봐 주세요.</p></div>';return}
+  if(state.voteStatus==='open'){renderVote(el);return}
+  if(state.voteStatus==='ended'){el.innerHTML='<div class="action-center"><div class="action-icon">✅</div><h2>투표 완료</h2><p class="muted">선생님의 안내를 기다려 주세요.</p></div>';return}
+  el.innerHTML=`<div class="action-center"><div class="action-icon">💬</div><h2>${state.day}일차 토론 중</h2><p class="muted">선생님이 투표나 밤 행동을 시작하면 화면이 바뀝니다.</p>${state.roleLocked?'<div class="small muted lock-note">🔒 역할 확인은 잠겨 있습니다.</div>':''}</div>`;
 }
-function startNightHold(e,btn){
-  if(nightActionBusy||nightHoldTimer)return;
-  e.preventDefault();nightHolding=true;btn.classList.add('holding');
-  try{btn.setPointerCapture(e.pointerId)}catch{}
-  nightHoldTimer=setTimeout(()=>{nightHoldTimer=null;submitNightAction(btn.dataset.id,btn)},800);
+function renderNightAction(el,night){
+  if(!state.player.alive){el.innerHTML='<div class="action-center"><div class="action-icon">🌙</div><h2>밤이 진행 중이에요</h2><p class="muted">조용히 기다려 주세요.</p></div>';return}
+  if(night.hasActed){el.innerHTML='<div class="action-center"><div class="action-icon">✅</div><h2>밤 행동 완료</h2><p class="muted">태블릿을 그대로 두고 기다려 주세요.</p></div>';return}
+  el.innerHTML=`<div class="action-center"><div class="action-icon">🌙</div><h2>한 명을 선택하세요</h2><p class="muted">버튼을 약 1초 동안 꾹 누르면 선택됩니다.</p></div><div class="night-candidate-grid">${night.candidates.map(c=>`<button type="button" class="night-candidate-btn" data-id="${c.id}"><span>${escapeHtml(c.name)}</span><span class="hold-hint">꾹 누르기</span></button>`).join('')}</div>`;
+  qsa('.night-candidate-btn',el).forEach(btn=>{btn.addEventListener('pointerdown',e=>startNightHold(e,btn));btn.addEventListener('pointerup',cancelNightHold);btn.addEventListener('pointercancel',cancelNightHold);btn.addEventListener('pointerleave',cancelNightHold);btn.addEventListener('contextmenu',e=>e.preventDefault())});
 }
-function cancelNightHold(){
-  if(nightHoldTimer){clearTimeout(nightHoldTimer);nightHoldTimer=null}
-  nightHolding=false;qsa('.night-candidate-btn').forEach(b=>b.classList.remove('holding'));
+function renderPoliceResult(el,pr){
+  el.innerHTML=`<div class="action-center"><div class="action-icon">🔎</div><h2>개인 결과</h2><p class="muted">아래 버튼을 누르고 있는 동안만 결과가 보여요.</p></div><button id="privateResultBtn" class="private-result-btn" type="button">🔐 조사 결과 보기</button><div id="privateResultText" class="private-result-text blurred"><b>${escapeHtml(pr.targetName||'선택한 학생')}</b>은(는)<br><b class="police-answer">${pr.isMafia?'마피아입니다.':'마피아가 아닙니다.'}</b></div>`;
+  const btn=qs('#privateResultBtn'),text=qs('#privateResultText');const reveal=()=>text.classList.remove('blurred'),hide=()=>text.classList.add('blurred');btn.addEventListener('pointerdown',reveal);btn.addEventListener('pointerup',hide);btn.addEventListener('pointerleave',hide);btn.addEventListener('pointercancel',hide);btn.addEventListener('contextmenu',e=>e.preventDefault());
 }
-async function submitNightAction(targetId,btn){
-  if(nightActionBusy)return;
-  nightActionBusy=true;nightHolding=false;
-  qsa('.night-candidate-btn').forEach(b=>{b.disabled=true;b.classList.remove('holding')});
-  if(btn)btn.classList.add('chosen');
-  try{
-    state=await api('/api/rooms/'+code+'/night/action',{method:'POST',headers:{'x-player-token':token},body:JSON.stringify({targetId})});
-    render();
-  }catch(e){
-    flash(qs('#nightMsg'),e.message,'notice error');
-    qsa('.night-candidate-btn').forEach(b=>b.disabled=false);
-  }finally{nightActionBusy=false}
+function startNightHold(e,btn){if(nightActionBusy||nightHoldTimer)return;e.preventDefault();nightHolding=true;btn.classList.add('holding');try{btn.setPointerCapture(e.pointerId)}catch{}nightHoldTimer=setTimeout(()=>{nightHoldTimer=null;submitNightAction(btn.dataset.id,btn)},800)}
+function cancelNightHold(){if(nightHoldTimer){clearTimeout(nightHoldTimer);nightHoldTimer=null}nightHolding=false;qsa('.night-candidate-btn').forEach(b=>b.classList.remove('holding'))}
+async function submitNightAction(targetId,btn){if(nightActionBusy)return;nightActionBusy=true;nightHolding=false;qsa('.night-candidate-btn').forEach(b=>{b.disabled=true;b.classList.remove('holding')});if(btn)btn.classList.add('chosen');try{state=await api('/api/rooms/'+code+'/night/action',{method:'POST',headers:{'x-player-token':token},body:JSON.stringify({targetId})});render()}catch(e){flash(qs('#actionMsg'),e.message,'notice error');qsa('.night-candidate-btn').forEach(b=>b.disabled=false)}finally{nightActionBusy=false}}
+function renderVote(el){
+  if(state.player.hasVoted){selectedVoteTarget=null;el.innerHTML='<div class="action-center"><div class="action-icon">✅</div><h2>투표 완료</h2><p class="muted">다른 친구들의 투표를 기다려 주세요.</p></div>';return}
+  const oldChecked=qs('input[name="target"]:checked',el)?.value;if(oldChecked)selectedVoteTarget=oldChecked;if(selectedVoteTarget&&!state.candidates.some(c=>c.id===selectedVoteTarget))selectedVoteTarget=null;
+  el.innerHTML=`<div class="action-center"><div class="action-icon">🗳️</div><h2>마피아 투표</h2><p class="muted">한 명을 선택하세요.</p></div><form id="voteForm">${state.candidates.map(c=>`<input class="candidate-radio" type="radio" name="target" id="c_${c.id}" value="${c.id}" ${selectedVoteTarget===c.id?'checked':''}><label class="vote-option" for="c_${c.id}"><span>${escapeHtml(c.name)}</span><span class="dot"></span></label>`).join('')}<button class="btn btn-primary btn-block" type="submit">투표하기</button></form>`;
+  qsa('input[name="target"]',el).forEach(x=>x.onchange=()=>{selectedVoteTarget=x.value});qs('#voteForm').onsubmit=vote;
 }
-function renderVote(){
-  const el=qs('#voteContent');
-  if(state.night?.status==='open'){
-    selectedVoteTarget=null;
-    el.innerHTML='<div class="empty">밤 행동이 진행 중입니다. 밤이 끝난 뒤 낮 투표를 진행합니다.</div>';
-    return;
-  }
-  const oldChecked=qs('input[name="target"]:checked',el)?.value;if(oldChecked)selectedVoteTarget=oldChecked;
-  if(!state.rolesAssigned){el.innerHTML='<div class="empty">역할 배정 후 투표 기능이 열립니다.</div>';return}
-  if(!state.player.alive){selectedVoteTarget=null;el.innerHTML='<div class="card dead-card"><h2>이번 게임에서 탈락했어요</h2><p>토론과 투표에는 참여하지 않고 조용히 관전해 주세요.</p></div>';return}
-  if(state.voteStatus==='idle'){selectedVoteTarget=null;el.innerHTML=`<div class="status-banner status-wait">${state.day}일차 토론 중</div><p class="muted" style="text-align:center">선생님이 투표를 시작하면 후보가 나타납니다.</p>`;return}
-  if(state.voteStatus==='ended'){selectedVoteTarget=null;const top=(state.result||[]).slice(0,5);el.innerHTML=`<div class="status-banner status-done">${state.day}일차 투표가 끝났습니다.</div>${top.length?'<div class="vote-grid">'+top.map(t=>`<div class="candidate"><div class="small muted">${escapeHtml(t.name)}</div><div class="votes">${t.votes}표</div></div>`).join('')+'</div>':''}`;return}
-  if(state.player.hasVoted){selectedVoteTarget=null;el.innerHTML='<div class="status-banner status-done">✅ 투표를 완료했습니다.</div><p class="muted" style="text-align:center">선생님이 투표를 종료할 때까지 기다려 주세요.</p>';return}
-  if(selectedVoteTarget&&!state.candidates.some(c=>c.id===selectedVoteTarget))selectedVoteTarget=null;
-  el.innerHTML=`<h2>${state.day}일차 마피아 투표</h2><p class="muted">마피아라고 생각하는 친구를 한 명 선택하세요. 자기 자신에게는 투표할 수 없습니다.</p><form id="voteForm">${state.candidates.map(c=>`<input class="candidate-radio" type="radio" name="target" id="c_${c.id}" value="${c.id}" ${selectedVoteTarget===c.id?'checked':''}><label class="vote-option" for="c_${c.id}"><span>${escapeHtml(c.name)}</span><span class="dot"></span></label>`).join('')}<button class="btn btn-primary btn-block" type="submit">이 친구에게 투표하기</button></form>`;
-  qsa('input[name="target"]',el).forEach(x=>x.onchange=()=>{selectedVoteTarget=x.value});
-  qs('#voteForm').onsubmit=vote;
-}
-async function vote(e){
-  e.preventDefault();const target=new FormData(e.target).get('target');
-  if(!target)return flash(qs('#voteMsg'),'투표할 친구를 한 명 선택해 주세요.','notice error');
-  selectedVoteTarget=target;
-  if(!confirm('선택한 친구에게 투표할까요? 한 번 투표하면 바꿀 수 없습니다.'))return;
-  try{await api('/api/rooms/'+code+'/vote',{method:'POST',headers:{'x-player-token':token},body:JSON.stringify({targetId:target})});selectedVoteTarget=null;await load()}catch(err){flash(qs('#voteMsg'),err.message,'notice error')}
-}
+async function vote(e){e.preventDefault();const target=new FormData(e.target).get('target');if(!target)return flash(qs('#actionMsg'),'한 명을 선택해 주세요.','notice error');selectedVoteTarget=target;if(!confirm('이 친구에게 투표할까요?'))return;try{await api('/api/rooms/'+code+'/vote',{method:'POST',headers:{'x-player-token':token},body:JSON.stringify({targetId:target})});selectedVoteTarget=null;await load()}catch(err){flash(qs('#actionMsg'),err.message,'notice error')}}
 if(!/^\d{6}$/.test(code||''))fatal('올바른 방 주소가 아닙니다.');else ensureJoin();
 setInterval(()=>{if(token)load()},1500);
 </script>
