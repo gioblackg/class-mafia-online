@@ -15,3 +15,26 @@ button,input,select{font:inherit}.wrap{width:min(1120px,calc(100% - 32px));margi
 .role-hidden{background:#f0f1f5;color:#777d8c;letter-spacing:.15em;min-width:48px;text-align:center}.role-locked{background:linear-gradient(180deg,#f3f2f8,#fff)}
 .night-table{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}.night-head,.night-row{display:grid;grid-template-columns:minmax(120px,1fr) 130px 130px;align-items:center}.night-head{background:#f7f7fb;font-size:12px;font-weight:900;color:#64697a}.night-head span,.night-row>span,.night-choice{padding:12px 14px}.night-row{border-top:1px solid var(--line)}.night-name{font-weight:850}.night-choice{display:grid;place-items:center;cursor:pointer}.night-choice input{position:absolute;opacity:0;pointer-events:none}.night-choice span{width:24px;height:24px;border:2px solid #c9ccd7;border-radius:50%;display:block;background:#fff}.night-choice input:checked+span{border:7px solid var(--primary);box-shadow:0 0 0 3px #eeeaff}.night-summary{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}.night-summary span{padding:9px 12px;background:#f7f7fb;border-radius:12px}
 @media(max-width:520px){.night-head,.night-row{grid-template-columns:minmax(90px,1fr) 88px 88px}.night-head span,.night-row>span,.night-choice{padding:10px 6px}.night-head{text-align:center}.night-head span:first-child{text-align:left}}
+
+/* v2.2: 전원 공통 밤 행동 화면 */
+.night-student-card{background:linear-gradient(180deg,#f4f1ff 0%,#fff 70%);text-align:center;overflow:hidden}
+.night-moon{font-size:58px;line-height:1;margin-bottom:12px}
+.night-generic-help{margin:8px auto 20px;max-width:420px;color:var(--muted);line-height:1.7}
+.night-candidate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;text-align:left}
+.night-candidate-btn{position:relative;min-height:68px;border:1px solid var(--line);border-radius:16px;background:#fff;padding:14px 15px;color:var(--text);font-weight:900;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.night-candidate-btn::before{content:"";position:absolute;left:0;top:0;bottom:0;width:0;background:#eeeaff;transition:width .8s linear;z-index:0}
+.night-candidate-btn>span{position:relative;z-index:1}
+.night-candidate-btn .hold-hint{font-size:11px;color:#8b90a2;font-weight:800;white-space:nowrap}
+.night-candidate-btn.holding{border-color:#8c7cf6;box-shadow:0 0 0 3px #eeeaff}
+.night-candidate-btn.holding::before{width:100%}
+.night-candidate-btn.chosen{border-color:var(--success);background:#eaf9f3}
+.night-candidate-btn:disabled{cursor:default;opacity:.7}
+.night-teacher-intro{padding:4px 0}
+.night-teacher-intro ul{line-height:1.8;padding-left:20px}
+.night-progressbar{height:10px;background:#ececf3;border-radius:999px;overflow:hidden}
+.night-progressbar span{display:block;height:100%;background:linear-gradient(90deg,var(--primary),var(--primary2));border-radius:999px;transition:width .25s}
+@media(max-width:520px){.night-candidate-grid{grid-template-columns:1fr}.night-candidate-btn{min-height:62px}}
+.private-result-wrap{margin-top:18px;padding:16px;border:1px dashed #d9d5f7;border-radius:16px;background:#fbfaff}
+.private-result-btn{margin-top:10px;width:100%;border:0;border-radius:14px;padding:13px 16px;background:#efedff;color:#5147bd;font-weight:900;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.private-result-text{margin-top:12px;padding:14px;border-radius:14px;background:#fff;font-size:18px;font-weight:950;transition:filter .1s,opacity .1s}
+.private-result-text.blurred{filter:blur(10px);opacity:.55;user-select:none}
