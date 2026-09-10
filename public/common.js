@@ -5,7 +5,7 @@ const api = async (url, opts={}) => {
   try {
     res = await fetch(url,{...opts,cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})}});
   } catch (e) {
-    throw new Error('서버와 연결이 끊겼습니다. 실행 프로그램을 다시 시작한 뒤 새로고침해 주세요.');
+    throw new Error('서버와 연결이 끊겼습니다. 잠시 후 새로고침해 주세요.');
   }
   let data={}; try{ data=await res.json(); }catch{}
   if(!res.ok) throw new Error(data.error||'요청을 처리하지 못했습니다.');
